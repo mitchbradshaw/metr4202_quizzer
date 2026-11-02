@@ -1,0 +1,673 @@
+/* A* by hand on a road map (sim "astar", generator "plan-astar"). Every class starts with plan-astar-. */
+
+/* ------------------------------------------------------------------ layout */
+.plan-astar-root {
+  margin: 8px 0;
+}
+.plan-astar-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: 4px 0 10px;
+}
+.plan-astar-toolgroup {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.plan-astar-toollabel {
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.plan-astar-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.plan-astar-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.plan-astar-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  min-width: 0;
+}
+.plan-astar-card > * + * {
+  margin-top: 8px;
+}
+.plan-astar-graph {
+  order: 1;
+}
+.plan-astar-ctrl {
+  order: 2;
+}
+.plan-astar-narr {
+  order: 3;
+}
+.plan-astar-tables {
+  order: 4;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.plan-astar-below {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+}
+.plan-astar-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.plan-astar-h3 {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 650;
+}
+.plan-astar-sub {
+  color: var(--text-3);
+  font-size: 0.84rem;
+}
+.plan-astar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+@media (max-width: 900px) {
+  .plan-astar-main {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .plan-astar-col {
+    display: contents;
+  }
+  .plan-astar-tables {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .plan-astar-two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .plan-astar-tables {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* Touch screens: kit buttons and segmented controls get 40 px targets inside this activity. */
+@media (pointer: coarse) {
+  .plan-astar-root .btn,
+  .plan-astar-root .seg-btn,
+  .plan-astar-step .btn {
+    min-height: 40px;
+  }
+}
+
+/* ------------------------------------------------------------------ the map */
+.plan-astar-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+.plan-astar-svg.is-figure {
+  max-width: 640px;
+}
+.plan-astar-road {
+  stroke: var(--text-3);
+  stroke-width: 2;
+  opacity: 0.55;
+}
+.plan-astar-road.is-pending {
+  stroke: var(--accent);
+  opacity: 0.9;
+  stroke-width: 3;
+  stroke-dasharray: 6 5;
+}
+.plan-astar-tree {
+  stroke: var(--m2);
+  stroke-width: 3.5;
+  stroke-dasharray: 7 5;
+  stroke-linecap: round;
+  opacity: 0.9;
+}
+.plan-astar-tree.is-final {
+  stroke: var(--m1);
+  stroke-width: 4.5;
+  stroke-dasharray: none;
+  opacity: 0.8;
+}
+.plan-astar-relax {
+  stroke-linecap: round;
+  fill: none;
+}
+.plan-astar-relax.is-better {
+  stroke: var(--accent);
+  stroke-width: 7;
+  opacity: 0.55;
+}
+.plan-astar-relax.is-worse {
+  stroke: var(--text-3);
+  stroke-width: 3;
+  stroke-dasharray: 2 6;
+}
+.plan-astar-relax.is-closed {
+  display: none;
+}
+.plan-astar-replaced line {
+  stroke: var(--bad);
+  stroke-width: 3;
+  stroke-dasharray: 5 5;
+}
+.plan-astar-replaced text {
+  fill: var(--bad);
+  font: 700 15px var(--font);
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 4px;
+}
+.plan-astar-path line {
+  stroke: var(--m3);
+  stroke-width: 6.5;
+  stroke-linecap: round;
+}
+.plan-astar-path path {
+  fill: var(--m3);
+}
+.plan-astar-cost {
+  font: 600 12.5px var(--mono);
+  fill: var(--text);
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.plan-astar-cost.is-hot {
+  fill: var(--accent);
+}
+.plan-astar-hit {
+  fill: transparent;
+}
+.plan-astar-disc {
+  stroke-width: 2.5;
+  transition: fill 0.25s, stroke 0.25s;
+}
+.plan-astar-node.is-idle .plan-astar-disc {
+  fill: var(--surface);
+  stroke: var(--text-3);
+}
+.plan-astar-node.is-open .plan-astar-disc {
+  fill: color-mix(in srgb, var(--m2) 24%, var(--surface));
+  stroke: var(--m2);
+}
+.plan-astar-node.is-closed .plan-astar-disc {
+  fill: var(--m1);
+  stroke: var(--m1);
+}
+.plan-astar-node.is-path .plan-astar-disc {
+  stroke: var(--m3);
+  stroke-width: 4;
+}
+.plan-astar-node.is-flash-ok .plan-astar-disc {
+  stroke: var(--ok);
+  stroke-width: 4.5;
+}
+.plan-astar-node.is-flash-bad .plan-astar-disc {
+  stroke: var(--bad);
+  stroke-width: 4.5;
+}
+.plan-astar-node.is-flash-bad {
+  animation: plan-astar-shake 0.35s ease-in-out;
+}
+.plan-astar-code {
+  font: 650 12.5px var(--font);
+  fill: var(--text);
+  pointer-events: none;
+}
+.plan-astar-node.is-closed .plan-astar-code {
+  fill: var(--surface);
+}
+.plan-astar-role {
+  fill: none;
+  stroke-width: 2;
+}
+.plan-astar-role.is-start {
+  stroke: var(--accent);
+}
+.plan-astar-role.is-goal {
+  stroke: var(--m3);
+  stroke-dasharray: 4 3;
+}
+.plan-astar-ring {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3.5;
+}
+.plan-astar-node.is-pending .plan-astar-ring {
+  stroke-dasharray: 5 4;
+}
+.plan-astar-pulse {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: plan-astar-pulse 1.4s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes plan-astar-pulse {
+  from {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(1.75);
+    opacity: 0;
+  }
+}
+@keyframes plan-astar-shake {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  25% {
+    translate: -3px 0;
+  }
+  75% {
+    translate: 3px 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .plan-astar-pulse {
+    animation: none;
+    opacity: 0;
+  }
+  .plan-astar-node.is-flash-bad {
+    animation: none;
+  }
+}
+.plan-astar-name,
+.plan-astar-val,
+.plan-astar-hval {
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3.5px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.plan-astar-name {
+  font: 12px var(--font);
+  fill: var(--text-2);
+}
+.plan-astar-roletag {
+  font-weight: 700;
+}
+.plan-astar-roletag.is-start {
+  fill: var(--accent);
+}
+.plan-astar-roletag.is-goal {
+  fill: var(--m3);
+}
+.plan-astar-val {
+  font: 700 11.5px var(--mono);
+}
+.plan-astar-val.is-open {
+  fill: var(--m2);
+}
+.plan-astar-val.is-closed {
+  fill: var(--m1);
+}
+.plan-astar-hval {
+  font: 11.5px var(--mono);
+  fill: var(--text-2);
+}
+.plan-astar-hval.is-edited {
+  fill: var(--warn);
+  font-weight: 700;
+}
+.plan-astar-hval.is-bad {
+  fill: var(--bad);
+  font-weight: 700;
+}
+.plan-astar-svg.is-interactive .plan-astar-node {
+  cursor: pointer;
+}
+.plan-astar-svg.is-interactive .plan-astar-node:hover .plan-astar-disc {
+  stroke-width: 4;
+}
+.plan-astar-node:focus {
+  outline: none;
+}
+.plan-astar-node:focus-visible .plan-astar-hit {
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+.plan-astar-scalebar line {
+  stroke: var(--text-3);
+  stroke-width: 1.5;
+}
+.plan-astar-scalebar text {
+  font: 11px var(--font);
+  fill: var(--text-3);
+}
+.plan-astar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 0.82rem;
+  color: var(--text-2);
+}
+.plan-astar-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.plan-astar-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2.5px solid;
+  display: inline-block;
+}
+.plan-astar-dot.is-open {
+  border-color: var(--m2);
+  background: color-mix(in srgb, var(--m2) 24%, var(--surface));
+}
+.plan-astar-dot.is-closed {
+  border-color: var(--m1);
+  background: var(--m1);
+}
+.plan-astar-dot.is-idle {
+  border-color: var(--text-3);
+  background: var(--surface);
+}
+.plan-astar-swatch {
+  width: 22px;
+  height: 0;
+  display: inline-block;
+  border-top: 4px solid;
+}
+.plan-astar-swatch.is-tent {
+  border-top: 3px dashed var(--m2);
+}
+.plan-astar-swatch.is-final {
+  border-color: var(--m1);
+}
+.plan-astar-swatch.is-relax {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--surface));
+  border-top-width: 6px;
+}
+.plan-astar-swatch.is-path {
+  border-color: var(--m3);
+}
+.plan-astar-swatch.is-replaced {
+  border-top: 3px dashed var(--bad);
+}
+
+/* ------------------------------------------------------------------ tables */
+.plan-astar-tablecard h4 {
+  margin: 0 0 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.plan-astar-table {
+  width: 100%;
+  font-size: 0.88rem;
+  border-collapse: collapse;
+}
+.plan-astar-table th,
+.plan-astar-table td {
+  text-align: left;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.plan-astar-table thead th {
+  color: var(--text-2);
+  font-weight: 650;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+.plan-astar-table tbody th {
+  font-weight: 650;
+  white-space: nowrap;
+}
+.plan-astar-th-sub {
+  font-family: var(--mono);
+  font-weight: 400;
+  color: var(--text-3);
+}
+.plan-astar-table tr.is-new > * {
+  background: color-mix(in srgb, var(--accent) 11%, transparent);
+}
+.plan-astar-table tr.is-improved > * {
+  background: color-mix(in srgb, var(--m4) 13%, transparent);
+}
+.plan-astar-table tr.is-just > * {
+  background: color-mix(in srgb, var(--m1) 14%, transparent);
+}
+.plan-astar-next {
+  color: var(--accent);
+  margin-right: 3px;
+}
+.plan-astar-chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font: 600 0.72rem var(--font);
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+.plan-astar-chip.is-new {
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--border));
+}
+.plan-astar-chip.is-improved {
+  color: var(--m4);
+  border: 1px solid color-mix(in srgb, var(--m4) 50%, var(--border));
+}
+
+/* ------------------------------------------------------------------ narrative, drive, lab */
+.plan-astar-narr .rich {
+  font-size: 0.92rem;
+}
+.plan-astar-narr ul {
+  margin: 0.3em 0;
+  padding-left: 1.2em;
+}
+.plan-astar-stephead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+}
+.plan-astar-score {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.plan-astar-entries {
+  display: grid;
+  gap: 6px;
+}
+.plan-astar-entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+.plan-astar-entry label {
+  min-width: 5.5em;
+  font-weight: 600;
+}
+.plan-astar-in {
+  font: 0.98rem var(--mono);
+  padding: 7px 8px;
+  min-height: 40px;
+  width: 7.5em;
+  max-width: 100%;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+.plan-astar-in.is-ok {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+}
+.plan-astar-in.is-bad {
+  border-color: var(--bad);
+  background: var(--bad-soft);
+}
+.plan-astar-msg {
+  font-size: 0.88rem;
+}
+.plan-astar-msg.is-ok {
+  color: var(--ok);
+}
+.plan-astar-msg.is-bad {
+  color: var(--bad);
+}
+.plan-astar-compare {
+  width: 100%;
+  font-size: 0.86rem;
+  border-collapse: collapse;
+}
+.plan-astar-compare th,
+.plan-astar-compare td {
+  text-align: left;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.plan-astar-compare thead th {
+  color: var(--text-2);
+  font-weight: 650;
+  font-size: 0.8rem;
+}
+.plan-astar-compare tr.is-on > * {
+  background: var(--accent-soft);
+}
+.plan-astar-compare .plan-astar-pathcell {
+  overflow-wrap: anywhere;
+}
+.plan-astar-linkbtn {
+  font: inherit;
+  font-weight: 650;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  padding: 4px 2px;
+  min-height: 32px;
+  cursor: pointer;
+  text-align: left;
+}
+.plan-astar-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.plan-astar-hlab td.is-bad,
+.plan-astar-hlab th.is-bad {
+  color: var(--bad);
+  font-weight: 700;
+}
+.plan-astar-sheet {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
+  gap: 10px;
+}
+.plan-astar-sheet-step {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--surface);
+  min-width: 0;
+}
+.plan-astar-sheet-step > * + * {
+  margin-top: 6px;
+}
+
+/* ------------------------------------------------------------------ solve: exam step table */
+.plan-astar-part {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+.plan-astar-step {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--surface);
+  min-width: 0;
+}
+.plan-astar-step.is-done {
+  background: var(--surface-2);
+}
+.plan-astar-step > * + * {
+  margin-top: 8px;
+}
+.plan-astar-step-title {
+  font-weight: 700;
+}
+.plan-astar-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.plan-astar-pick {
+  font: 600 0.92rem var(--font);
+  min-height: 40px;
+  min-width: 44px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.plan-astar-pick:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.plan-astar-pick.is-ok {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+}
+.plan-astar-pick.is-bad {
+  border-color: var(--bad);
+  background: var(--bad-soft);
+}
+.plan-astar-pick:disabled {
+  cursor: default;
+}
+.plan-astar-steptables {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 10px;
+}
+@media (max-width: 700px) {
+  .plan-astar-steptables {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

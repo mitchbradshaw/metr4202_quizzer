@@ -2,7 +2,7 @@
 
 **Goal.** An intuition-first study game for UQ METR4202 (Robotics & Automation). You move a slider and watch a belief, filter,
 planner or arm respond; predict before you see; solve exam problems step by step with every step checked; and drill
-definitions. It will be used for 10–15 hours over about two weeks before the exam, on a laptop and a tablet.
+definitions. It will be used for 10–15 hours over about two weeks before the exam, on a laptop only (no phone or tablet layouts).
 
 **Sources.** The 2022–2025 papers and worked solutions, the lecturer's review deck (19/10/2026), the exam summary notes and
 the course profile. The 2022 paper only counts for kinematics. Every question is original wording that cites the
@@ -15,7 +15,8 @@ past questions it mirrors (the repo is public). Figures are redrawn, never scann
 | Time budget | ~2 weeks, 10–15 h. All 9 topics, with depth concentrated on the four recurring templates (≈45 of 80 marks). |
 | Engine and look | Fork 3200_quizzer: React 18 + TypeScript, esbuild into one self-contained `index.html`, same UI kit and tabs. |
 | 3D | three.js for the arm viewer and the M / screw-axis exercises, plus a 3D camera frustum in the world-to-pixel pipeline. Everything else is 2D SVG or canvas. |
-| Deployment | Commit, push and open a PR; a GitHub Pages workflow (switched on by you); a private hosted copy as a claude.ai Artifact for the tablet. |
+| Deployment | Commit, push and open a PR; a GitHub Pages workflow (switched on by you). |
+| Devices | Laptop only, 1280–1440 px wide (decided after the grilling round): no phone or tablet layouts, touch or narrow-width testing. |
 | Topic order | Planning → Kinematics → Bayes → Mapping → Motion & sensor models → Perception → Filters → RL → Multi-robot. |
 | Exam mode | Untimed with an optional 1.5 min/mark pace timer. Home adds a 20-min Quick sprint and a 120-min Mock paper in the real format. |
 | No-long-answer topics | Numeric exam mode wherever a hand calculation fits (KF update, particle weights, Q-learning step, returns); self-marked short answers everywhere; multi-robot gets short answers only. |
@@ -48,7 +49,7 @@ tests/         Playwright smoke test (every topic, every activity)
   evaluating at hidden random lengths), per-cell absolute tolerances for belief tables, and a `custom` part for
   interactive answers (A* Open/Closed table, C-space box labelling).
 - **Performance:** per-frame work goes through refs in a rAF loop; heavy grids (C-space, potential fields) go to canvas
-  `ImageData`; slider-driven recomputation is throttled to one per frame.
+  `ImageData`; slider-driven recomputation is throttled to one per frame. Layouts target laptop widths (1280–1440 px).
 - **Persistence:** progress per topic in localStorage (`m42lab.v1`), with export and import. Home shows mastery rings
   per topic plus cards due, streak and traps beaten.
 
@@ -123,5 +124,5 @@ answers with a model answer and key-point checklist.
 3. Kinematics (three.js), then the other topics in priority order, in parallel where they don't share files.
 4. Home progress overview, "do these first", Quick sprint and the 120-min Mock paper.
 5. Playwright smoke test (every topic, every activity), crawl for console errors / overflow / frame times at laptop
-   and tablet widths, Pages workflow, README.
+   widths, Pages workflow, README.
 6. Three independent review agents (student, tutor, UX/perf), fix, second round if any score < 8.

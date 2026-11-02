@@ -12,7 +12,7 @@ const width = Number(flags.width || 1280);
 const { browser, ROOT } = await launch();
 const { page, errors } = await openPage(browser, fileUrl(ROOT, flags.file), { width, height: 900 });
 const inv = await page.evaluate(() => window.__m42);
-const wanted = pos.map((s) => s.toUpperCase());
+const wanted = pos.map((s) => s.toLowerCase());
 const topics = inv.topics.filter((t) => !wanted.length || wanted.includes(t.code));
 if (flags.shots) fs.mkdirSync(flags.shots, { recursive: true });
 

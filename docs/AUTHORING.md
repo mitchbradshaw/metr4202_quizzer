@@ -16,7 +16,7 @@ node scripts/test.mjs                         # every self-test (same list as #/
 node scripts/test.mjs plan --verbose          # print every check with its value
 node scripts/build.mjs                        # -> index.html (open by double-clicking)
 node scripts/crawl.mjs plan                   # headless Chrome/Edge: every route of a topic, console errors, overflow, frame times
-node scripts/crawl.mjs plan --width 820       # tablet portrait
+node scripts/crawl.mjs plan --width 1440      # the wide end of the laptop range
 node scripts/shot.mjs plan/explore/cspace out.png --width 1280 [--height 900] [--theme dark] [--full]
 ```
 
@@ -151,6 +151,12 @@ any other literal star. `\\$` is a literal dollar sign. There are no Markdown ta
 - **Hints are exactly four** and use this instance's numbers: concept → set-up (the formula with symbols) →
   substitution (numbers in) → full worked solution (tables in TeX, **bold final answers with units**).
 - Long multi-part templates: `sprint: false`.
+- **Traps**: give numeric `traps` and MCQs a `trapId` from `src/engine/traps.ts` (`likelihood-column`,
+  `contributions-add`, `normalise`, `false-positive`, `prior-0-1`, `r-vs-q`, `markov`, `radians`, `carry-theta`,
+  `omega-zero`, `radius-sign`, `goal-on-insert`, `manhattan-diagonal`, `bfs-weights`, `rrt-nearest`,
+  `endpoint-collision`, `cspace-band-blob`, `v-cross-sign`, `diagonal-axis`, `b-frame-q`, `depth-from-camera`,
+  `extrinsic-pose`, `mdp-tuple`, plus the generic `unit-scale`, `percent`, `sign`, `sqrt`, `factor2`). The trap
+  log shows them by name; an unknown id still shows with a fallback title.
 
 ## Explore (simulations)
 
@@ -167,9 +173,10 @@ Requirements:
 - **60 fps, never block input.** Per-frame updates go through refs inside `useRaf`, not setState. Big grids
   (C-space, potential fields, occupancy maps, Q heatmaps) go to a `<canvas>` via `ImageData`. Throttle
   slider-driven recomputation (`useFrameThrottled` or `useDeferredValue`). Precompute traces once per input.
-- **Laptop and tablet.** Must work from 768 px to 1440 px wide with no horizontal overflow (`SimLayout`
-  stacks under 860 px). Use `viewBox` + `width="100%"` for SVG. Dragging uses pointer events with
-  `touchAction: 'none'`; touch targets ≥ 40 px; nothing depends on hover alone.
+- **Laptop only.** Design for 1280–1440 px wide windows with no horizontal overflow; there is no phone or
+  tablet layout to build or test. Use `viewBox` + `width="100%"` for SVG. Dragging uses pointer events
+  (mouse); keep keyboard access (focusable handles, arrow keys) and don't hide essential information behind
+  hover alone.
 - Every number has a unit; every symbol has a tooltip (`tip`). Readouts in monospace.
 - Colour carries meaning only: `--m1 … --m4` for categorical series (consistently within a topic),
   `--accent` for interactive handles, `--ok` / `--bad` for right/wrong (always with an icon or text too),

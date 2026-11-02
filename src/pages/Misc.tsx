@@ -2,7 +2,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { ALL_TESTS } from '../selftest/registry';
 import { runAll } from '../selftest/runner';
-import { allTraps } from '../engine/traps';
+import { allTraps, trapById } from '../engine/traps';
 import {
   endSession,
   exportProgress,
@@ -103,7 +103,13 @@ function ago(t: number) {
 export function TrapsPage() {
   const p = useProgress();
   const [all, setAll] = useState(false);
-  const traps = allTraps()
+  // Named traps plus any logged trap id that no topic registered (shown with a readable fallback title).
+  const known = allTraps();
+  const unknown = Object.keys(p.traps)
+    .filter((id) => !known.some((t) => t.id === id))
+    .map((id) => trapById(id)!)
+    .filter(Boolean);
+  const traps = [...known, ...unknown]
     .map((t) => ({ t, s: p.traps[t.id] }))
     .filter((x) => all || (x.s && x.s.hits > 0))
     .sort((a, b) => (b.s?.hits || 0) - (a.s?.hits || 0));

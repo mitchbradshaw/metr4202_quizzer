@@ -15,6 +15,13 @@ const topic: TopicDef = {
   shortAnswers,
   solve: generators,
   explore,
+  seeAlso: [
+    {
+      label: 'Exam-style short answers',
+      href: '#/multi/quiz?v=short',
+      note: 'Multi-robot coordination is examined by two MCQs and a 3-mark comparison every year, so its exam mode is the short answers: write yours, then mark it against the model answer and key points.',
+    },
+  ],
 };
 
 export default topic;

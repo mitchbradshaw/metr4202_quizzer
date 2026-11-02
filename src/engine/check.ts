@@ -67,18 +67,18 @@ export function checkNumeric(part: NumericPart, raw: string, inputUnit: string =
   const r = v / ans;
   const is = (f: number) => Math.abs(r - f) <= T * Math.abs(f);
   const tp = 2 * Math.PI;
-  if (is(tp) || is(1 / tp))
+  const deg = 180 / Math.PI;
+  if (is(deg) || is(1 / deg)) return { correct: false, value: v, trapId: 'radians', message: 'Off by a factor of 180/π: degrees vs radians? The papers work in radians.' };
+  if (part.freq && (is(tp) || is(1 / tp)))
     return { correct: false, value: v, trapId: 'units', message: `Off by a factor of 2π: you have probably mixed up ω (rad/s) and f (Hz).` };
-  if (is(60) || is(1 / 60)) return { correct: false, value: v, trapId: 'units', message: 'Off by a factor of 60: rpm vs rev/s (Hz)?' };
-  if (is(60 / tp) || is(tp / 60)) return { correct: false, value: v, trapId: 'units', message: 'Off by 60/2π: rpm vs rad/s?' };
   if (is(1000) || is(1e-3) || is(1e6) || is(1e-6))
-    return { correct: false, value: v, trapId: 'unit-scale', message: 'Off by a power of 1000: check mm vs m, g vs kg, or kN vs N.' };
-  if (is(100) || is(0.01)) return { correct: false, value: v, trapId: 'percent', message: 'Off by 100: percentage vs fraction?' };
-  if (is(-1)) return { correct: false, value: v, trapId: 'sign', message: 'Right magnitude, wrong sign. Check your positive directions or the phase convention.' };
+    return { correct: false, value: v, trapId: 'unit-scale', message: 'Off by a power of 1000: check mm vs m (focal lengths and image sizes are often given in mm).' };
+  if (is(100) || is(0.01)) return { correct: false, value: v, trapId: 'percent', message: 'Off by 100: percentage vs fraction? Give probabilities as fractions.' };
+  if (is(-1)) return { correct: false, value: v, trapId: 'sign', message: 'Right magnitude, wrong sign. Check your positive directions (and the sign of ω or of v/ω).' };
   if (ans > 0 && v > 0 && (near(v, ans * ans, T) || near(v * v, ans, T)))
-    return { correct: false, value: v, trapId: 'sqrt', message: 'Looks like a missing or extra square root (e.g. ω² instead of ω).' };
-  if (is(2) || is(0.5)) return { correct: false, value: v, trapId: 'factor2', message: 'Off by a factor of 2. Check ½ factors, 2ζ, or c_c = 2√(km).' };
-  if (is(4) || is(0.25)) return { correct: false, value: v, trapId: 'factor2', message: 'Off by a factor of 4. A factor of 2 squared? (e.g. diameter vs radius, or ω vs ω²)' };
+    return { correct: false, value: v, trapId: 'sqrt', message: 'Looks like a missing or extra square root (e.g. a variance instead of a standard deviation).' };
+  if (is(2) || is(0.5)) return { correct: false, value: v, trapId: 'factor2', message: 'Off by a factor of 2. Check halves and doubles in your set-up.' };
+  if (is(4) || is(0.25)) return { correct: false, value: v, trapId: 'factor2', message: 'Off by a factor of 4: a factor of 2 squared?' };
   if (Math.abs(r - 1) <= 0.06)
     return { correct: false, value: v, message: `Close (${fmt(Math.abs(r - 1) * 100, 2)} % off) but outside ±${fmt(tol * 100, 2)} %. Carry more significant figures through the working.` };
   return { correct: false, value: v, message: 'Not quite. Use the hints to check your set-up.' };

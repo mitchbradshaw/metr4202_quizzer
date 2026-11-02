@@ -1,0 +1,261 @@
+/* Grid search lab + heuristic lab (plan topic, owner: grid). Every class is prefixed plan-grid-. */
+
+.plan-grid-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(290px, 1fr);
+  gap: 16px;
+  align-items: start;
+  margin: 12px 0;
+}
+.plan-grid-layout.is-wide {
+  grid-template-columns: minmax(0, 1fr);
+}
+.plan-grid-left {
+  position: sticky;
+  top: 8px;
+  z-index: 2;
+}
+.plan-grid-layout.is-wide .plan-grid-left {
+  position: static;
+}
+.plan-grid-right {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.plan-grid-layout.is-wide .plan-grid-right {
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  align-items: start;
+}
+.plan-grid-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  min-width: 0;
+}
+.plan-grid-panel > h4 {
+  margin: 0 0 6px;
+}
+.plan-grid-left.plan-grid-panel > * + * {
+  margin-top: 8px;
+}
+
+/* bars of controls next to the grid: comfortable touch targets */
+.plan-grid-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+}
+.plan-grid-bar .seg-btn,
+.plan-grid-sim .stepper .btn,
+.plan-grid-bar .btn,
+.plan-grid-bar .select {
+  min-height: 40px;
+}
+.plan-grid-sim .stepper .btn {
+  min-width: 40px;
+}
+.plan-grid-sim .stepper .seg-btn {
+  min-height: 36px;
+}
+.plan-grid-label {
+  font-size: 0.8rem;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 650;
+}
+.plan-grid-algos .seg-btn {
+  font-weight: 600;
+}
+
+/* the grid itself */
+.plan-grid-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  border-radius: 6px;
+}
+.plan-grid-svg.tool-inspect {
+  cursor: help;
+}
+.plan-grid-svg.tool-paint {
+  cursor: crosshair;
+}
+.plan-grid-axis {
+  font: 10px var(--font);
+  fill: var(--text-3);
+}
+.plan-grid-num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.plan-grid-handle {
+  cursor: grab;
+}
+.plan-grid-handle:focus {
+  outline: none;
+}
+.plan-grid-handle:focus-visible .plan-grid-handle-ring {
+  stroke: var(--text);
+  stroke-width: 3;
+}
+.plan-grid-handle-text {
+  font: 700 15px var(--font);
+  pointer-events: none;
+}
+
+/* legend */
+.plan-grid-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 0.82rem;
+  color: var(--text-2);
+}
+.plan-grid-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* tables */
+.plan-grid-table-wrap {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.plan-grid-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+.plan-grid-table th,
+.plan-grid-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+.plan-grid-table th:first-child,
+.plan-grid-table td:first-child {
+  text-align: left;
+}
+.plan-grid-table th {
+  color: var(--text-2);
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+.plan-grid-table td {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.plan-grid-table td.plan-grid-txt {
+  font-family: var(--font);
+  white-space: normal;
+  text-align: left;
+}
+.plan-grid-table th.is-key,
+.plan-grid-table td.is-key {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  font-weight: 700;
+}
+.plan-grid-table tr.is-sel td {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.plan-grid-table tr.is-click {
+  cursor: pointer;
+}
+.plan-grid-table tr.is-click:hover td {
+  background: var(--surface-2);
+}
+.plan-grid-table tr.is-first td {
+  font-weight: 700;
+}
+.plan-grid-compact th,
+.plan-grid-compact td {
+  padding: 3px 4px;
+}
+.plan-grid-compact th {
+  white-space: normal;
+  line-height: 1.2;
+  vertical-align: bottom;
+}
+.plan-grid-same {
+  font-size: 0.76rem;
+  color: var(--ok);
+  font-weight: 600;
+  line-height: 1.2;
+  padding-bottom: 3px;
+}
+.plan-grid-rowbtn {
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  padding: 6px 0;
+  min-height: 32px;
+  cursor: pointer;
+  text-align: left;
+}
+.plan-grid-ok {
+  color: var(--ok);
+  font-weight: 700;
+}
+.plan-grid-bad {
+  color: var(--bad);
+  font-weight: 700;
+}
+.plan-grid-chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.84rem;
+  font-weight: 650;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.plan-grid-steptext {
+  font-size: 0.9rem;
+  margin: 0 0 6px;
+}
+.plan-grid-predicts {
+  display: grid;
+  gap: 0;
+}
+.plan-grid-predicts > .predict {
+  margin: 6px 0;
+}
+.plan-grid-heat {
+  display: inline-block;
+  width: 110px;
+  height: 10px;
+  border-radius: 3px;
+  vertical-align: middle;
+  border: 1px solid var(--border);
+}
+
+@media (max-width: 860px) {
+  .plan-grid-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .plan-grid-left {
+    position: static;
+  }
+}
+@media (max-height: 700px) {
+  .plan-grid-left {
+    position: static;
+  }
+}

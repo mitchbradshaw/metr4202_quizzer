@@ -1,0 +1,83 @@
+/* Sampling-based planners (PRM, RRT, RRT*), RRT* by hand and RRT steering figures. Every class is prefixed plan-sampling-. */
+
+/* ---------------------------------------------------------------- shared SVG pieces */
+.plan-sampling-fig {
+  overflow: visible;
+}
+.plan-sampling-svglabel {
+  font: 600 13px var(--font);
+  fill: var(--text);
+}
+.plan-sampling-num {
+  font: 600 12px var(--font);
+  font-variant-numeric: tabular-nums;
+  fill: var(--text);
+}
+.plan-sampling-halo {
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+.plan-sampling-edgenum {
+  fill: var(--text-2);
+}
+.plan-sampling-muted {
+  fill: var(--text-3);
+  font-weight: 500;
+}
+.plan-sampling-hood {
+  fill: var(--m2);
+  fill-opacity: 0.09;
+  stroke: var(--m2);
+  stroke-opacity: 0.55;
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+.plan-sampling-edge {
+  stroke: var(--text-2);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+.plan-sampling-node {
+  fill: var(--text-2);
+}
+.plan-sampling-root {
+  fill: var(--text);
+}
+.plan-sampling-radius {
+  stroke: var(--m2);
+  stroke-opacity: 0.6;
+  stroke-width: 1.2;
+  stroke-dasharray: 3 3;
+}
+.plan-sampling-xnew {
+  fill: var(--m2);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+.plan-sampling-xnewlabel {
+  fill: var(--m2);
+}
+.plan-sampling-grid {
+  stroke: var(--grid);
+  stroke-width: 1;
+}
+.plan-sampling-axis {
+  stroke: var(--text-3);
+  stroke-width: 1.2;
+}
+.plan-sampling-centre line,
+.plan-sampling-centre path {
+  stroke-width: 1.1;
+  stroke-dasharray: 3 3;
+  opacity: 0.75;
+}
+.plan-sampling-startarrow {
+  stroke: var(--text);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+.plan-sampling-steerfig > .row {
+  margin-top: 4px;
+}
