@@ -32,7 +32,7 @@ const hierarchy: Scenario = (rng) => {
     'An autonomous forklift has to reach a loading bay at the other end of the warehouse',
     'A cleaning robot has to get from its dock to a room on the other side of the floor',
   ]);
-  const A = 'Finding a path from the robot’s current pose to the goal across the whole map can be computationally expensive.';
+  const A = 'Searching the whole map for a route from where the robot is now to its goal takes a lot of computation.';
   const B = 'The motion has to be re-planned at a high rate to cope with things the map does not show and with the robot not executing its commands exactly.';
   const [FALSE, REBUT] = rng.pick([
     ['A local planner on its own is guaranteed to reach any goal that can be reached.', 'a local planner only sees its surroundings and can stall in a local minimum, such as a U-shaped dead end.'],
@@ -489,11 +489,21 @@ function stepIn(rng: Rng, a: number, b: number, s: number): number {
 }
 
 function pickCase(rng: Rng, clip: 'none' | 'low' | 'high' | 'w'): WinCase {
-  const dt = rng.pick([0.1, 0.2, 0.25, 0.5]);
-  const aV = rng.pick([0.5, 0.8, 1, 1.2, 1.5, 2]);
-  const aW = rng.pick([1, 1.5, 2, 2.5, 3, 4]);
-  const vMax = rng.pick([1, 1.2, 1.5, 2]);
-  const wMax = rng.pick([1.5, 2, 2.5]);
+  let dt = 0.25;
+  let aV = 1;
+  let aW = 2;
+  let vMax = 1.5;
+  let wMax = 2;
+  for (let k = 0; k < 60; k++) {
+    dt = rng.pick([0.1, 0.2, 0.25, 0.5]);
+    aV = rng.pick([0.5, 0.8, 1, 1.2, 1.5, 2]);
+    aW = rng.pick([1, 1.5, 2, 2.5, 3, 4]);
+    vMax = rng.pick([1, 1.2, 1.5, 2]);
+    wMax = rng.pick([1.5, 2, 2.5]);
+    // As on a real robot, the window is a small part of the box: its half-widths v̇Δt and ω̇Δt stay within 35 % of
+    // v_max and 50 % of ω_max (but large enough to compute something).
+    if (aV * dt <= 0.35 * vMax + 1e-9 && aW * dt <= 0.5 * wMax + 1e-9 && aV * dt >= 0.1 - 1e-9 && aW * dt >= 0.2 - 1e-9) break;
+  }
   const dv = rd(aV * dt);
   const dw = rd(aW * dt);
   let v: number;
@@ -547,8 +557,8 @@ function boundsParts(c: WinCase): NumericPart[] {
 
 function windowGivens(c: WinCase) {
   return [
-    { sym: 'v', value: `${fmt(c.v, 3)} m/s`, label: 'current forward velocity' },
-    { sym: '\\omega', value: `${fmt(c.w, 3)} rad/s`, label: 'current angular velocity' },
+    { sym: 'v', value: `${fmt(c.v, 4)} m/s`, label: 'current forward velocity' },
+    { sym: '\\omega', value: `${fmt(c.w, 4)} rad/s`, label: 'current angular velocity' },
     { sym: '\\dot v_{max}', value: `${c.aV} m/s²`, label: 'translational acceleration limit' },
     { sym: '\\dot\\omega_{max}', value: `${c.aW} rad/s²`, label: 'angular acceleration limit' },
     { sym: '\\Delta t', value: `${c.dt} s`, label: 'control period' },
@@ -570,7 +580,7 @@ function windowTier1(rng: Rng): SolveInstance {
     c.w + dw > c.wMax ? `$\\omega + \\dot\\omega_{max}\\Delta t = ${tex(rd(c.w + dw))} > \\omega_{max}$, so it is clipped to ${c.wMax}` : '',
   ].filter(Boolean);
   return {
-    prompt: `A differential-drive robot runs the dynamic window approach. It is moving at $v$ = ${fmt(c.v, 3)} m/s and $\\omega$ = ${fmt(c.w, 3)} rad/s. Find the dynamic window for the next control period, intersected with the robot’s velocity limits.`,
+    prompt: `A differential-drive robot runs the dynamic window approach. It is moving at $v$ = ${fmt(c.v, 4)} m/s and $\\omega$ = ${fmt(c.w, 4)} rad/s. Find the dynamic window for the next control period, intersected with the robot’s velocity limits.`,
     givens: windowGivens(c),
     figure: windowFigure({ vMax: c.vMax, wMax: c.wMax, now: { v: c.v, w: c.w } }),
     parts: boundsParts(c),
@@ -578,7 +588,7 @@ function windowTier1(rng: Rng): SolveInstance {
       'In one control period the motors can only change the velocity by acceleration × time, so DWA searches a small rectangle around the current $(v, \\omega)$, cut to the box $V_s = [0, v_{max}] \\times [-\\omega_{max}, \\omega_{max}]$.',
       '$$V_d = [v - \\dot v_{max}\\Delta t,\\ v + \\dot v_{max}\\Delta t] \\times [\\omega - \\dot\\omega_{max}\\Delta t,\\ \\omega + \\dot\\omega_{max}\\Delta t],\\qquad \\text{search } V_s \\cap V_d$$',
       `$\\dot v_{max}\\Delta t = ${c.aV} \\times ${c.dt} = ${tex(dv)}$ m/s and $\\dot\\omega_{max}\\Delta t = ${c.aW} \\times ${c.dt} = ${tex(dw)}$ rad/s.${clipNote.length ? ` Watch the box: ${clipNote.join('; ')}.` : ' Check each bound against the box.'}`,
-      `$$v \\in [${tex(c.v)} - ${tex(dv)},\\ ${tex(c.v)} + ${tex(dv)}] \\cap [0,\\ ${c.vMax}] = [\\mathbf{${tex(b.v0)}},\\ \\mathbf{${tex(b.v1)}}]\\ \\text{m/s}$$ $$\\omega \\in [${tex(c.w)} - ${tex(dw)},\\ ${tex(c.w)} + ${tex(dw)}] \\cap [${tex(-c.wMax)},\\ ${c.wMax}] = [\\mathbf{${tex(b.w0)}},\\ \\mathbf{${tex(b.w1)}}]\\ \\text{rad/s}$$ **Window: $v$ from ${fmt(b.v0, 3)} to ${fmt(b.v1, 3)} m/s, $\\omega$ from ${fmt(b.w0, 3)} to ${fmt(b.w1, 3)} rad/s.**`,
+      `$$v \\in [${tex(c.v)} - ${tex(dv)},\\ ${tex(c.v)} + ${tex(dv)}] \\cap [0,\\ ${c.vMax}] = [\\mathbf{${tex(b.v0)}},\\ \\mathbf{${tex(b.v1)}}]\\ \\text{m/s}$$ $$\\omega \\in [${tex(c.w)} - ${tex(dw)},\\ ${tex(c.w)} + ${tex(dw)}] \\cap [${tex(-c.wMax)},\\ ${c.wMax}] = [\\mathbf{${tex(b.w0)}},\\ \\mathbf{${tex(b.w1)}}]\\ \\text{rad/s}$$ **Window: $v$ from ${fmt(b.v0, 4)} to ${fmt(b.v1, 4)} m/s, $\\omega$ from ${fmt(b.w0, 4)} to ${fmt(b.w1, 4)} rad/s.**`,
     ],
   };
 }
@@ -701,19 +711,25 @@ function scoringInstance(rng: Rng, tier: 2 | 3): SolveInstance {
       ),
     })
   );
-  if (tier === 3)
+  if (tier === 3) {
+    // Not named in the label: the student has to see from parts 1–3 which sample scores highest.
+    const stopTraps: { value: number; message: string; trapId?: string }[] = [
+      { value: rd(top.v / (2 * bLim), 6), message: 'Square the speed: braking distance $= v^2/(2\\dot v_b)$.', trapId: 'dwa-stop' },
+      { value: rd((top.v * top.v) / bLim, 6), message: 'Missing the ½: braking distance $= v^2/(2\\dot v_b)$.', trapId: 'dwa-stop' },
+      ...cands.filter((c) => c !== top).map((c) => ({ value: c.stop, message: `That is sample ${c.label}’s braking distance. Take the sample with the highest $G$ from parts 1–3.` })),
+    ];
+    const kept: typeof stopTraps = [];
+    for (const t of stopTraps) if (Math.abs(t.value - top.stop) > 0.02 * top.stop && kept.every((k) => Math.abs(k.value - t.value) > 0.02 * Math.max(k.value, 1e-9))) kept.push(t);
     parts.push({
       kind: 'numeric',
       id: 'stop',
-      label: `Braking distance of the highest-scoring sample (${top.label})`,
+      label: 'Braking distance $v^2/(2\\dot v_b)$ of the sample with the highest $G$',
       answer: top.stop,
       unit: 'm',
       tol: 0.01,
-      traps: [
-        { value: rd(top.v / (2 * bLim), 6), message: 'Square the speed: braking distance $= v^2/(2\\dot v_b)$.', trapId: 'dwa-stop' },
-        { value: rd((top.v * top.v) / bLim, 6), message: 'Missing the ½: braking distance $= v^2/(2\\dot v_b)$.', trapId: 'dwa-stop' },
-      ].filter((t) => Math.abs(t.value - top.stop) > 0.02 * top.stop),
+      traps: kept,
     });
+  }
   const distTxt = (c: Cand3) => (Number.isFinite(c.dist) ? `${fmt(c.dist, 3)} m` : 'no obstacle on its arc');
   const options: Opt[] = cands.map((c) => {
     let why = `$G$ = ${fmt(c.G, 3)}.`;
@@ -723,7 +739,7 @@ function scoringInstance(rng: Rng, tier: 2 | 3): SolveInstance {
         : ` **Not admissible**: braking distance ${fmt(c.stop, 3)} m > free distance ${distTxt(c)}, so it could not stop in time; DWA discards it however high its score.`;
     if (c === chosen) why += tier === 3 && c !== top ? ' It is the best of the admissible samples.' : ' It has the highest score.';
     else if (tier === 2 || c.adm) why += ` ${chosen.label} scores higher.`;
-    return { text: `Sample ${c.label}: $v$ = ${fmt(c.v, 3)} m/s, $\\omega$ = ${fmt(c.w, 3)} rad/s`, correct: c === chosen, why };
+    return { text: `Sample ${c.label}: $v$ = ${fmt(c.v, 4)} m/s, $\\omega$ = ${fmt(c.w, 4)} rad/s`, correct: c === chosen, why };
   });
   if (tier === 3) options.push({ text: 'None of them: brake as hard as possible', correct: false, why: `Sample ${chosen.label} is admissible, so DWA executes the best admissible sample instead of braking.` });
   parts.push({ kind: 'choice', id: 'pick', label: 'Which velocity does DWA execute for the next control period?', options });
@@ -749,7 +765,7 @@ function scoringInstance(rng: Rng, tier: 2 | 3): SolveInstance {
         'Every admissible sample in the window is scored with the same weighted sum; DWA executes the highest-scoring one for one control period, then repeats from the new state.',
         '$$G(v, \\omega) = w_h\\,\\text{heading} + w_c\\,\\text{clearance} + w_v\\,\\text{velocity}$$',
         `With $w_h$ = ${wh}, $w_c$ = ${wc}, $w_v$ = ${wv}: $G_{\\text{A}} = ${wh}(${cands[0].h.toFixed(2)}) + ${wc}(${cands[0].c.toFixed(2)}) + ${wv}(${cands[0].s.toFixed(2)})$, and the same for B and C.`,
-        `$$\\begin{aligned} ${gLines} \\end{aligned}$$ **DWA executes ${chosen.label}** ($v$ = ${fmt(chosen.v, 3)} m/s, $\\omega$ = ${fmt(chosen.w, 3)} rad/s), the highest score, $G$ = ${fmt(chosen.G, 3)}.`,
+        `$$\\begin{aligned} ${gLines} \\end{aligned}$$ **DWA executes ${chosen.label}** ($v$ = ${fmt(chosen.v, 4)} m/s, $\\omega$ = ${fmt(chosen.w, 4)} rad/s), the highest score, $G$ = ${fmt(chosen.G, 3)}.`,
       ],
     };
   return {
@@ -761,7 +777,7 @@ function scoringInstance(rng: Rng, tier: 2 | 3): SolveInstance {
       'Two different tests: the objective $G$ ranks the samples (soft), but a sample that cannot stop before the obstacle on its arc is discarded whatever its score (hard: the admissible set $V_a$).',
       '$$G = w_h\\,\\text{heading} + w_c\\,\\text{clearance} + w_v\\,\\text{velocity},\\qquad \\text{admissible} \\iff \\frac{v^2}{2\\dot v_b} \\le \\mathrm{dist}(v, \\omega)$$',
       `With $\\dot v_b$ = ${bLim} m/s², sample ${top.label} needs $${tex(top.v)}^2/(2 \\times ${bLim})$ m to stop; compare that with its free distance (${distTxt(top)}).`,
-      `$$\\begin{aligned} ${gLines} \\end{aligned}$$ $$\\begin{aligned} ${sLines} \\end{aligned}$$ **${top.label} scores highest but cannot stop in time (braking distance ${fmt(top.stop, 3)} m), so DWA executes ${chosen.label}** ($v$ = ${fmt(chosen.v, 3)} m/s, $\\omega$ = ${fmt(chosen.w, 3)} rad/s, $G$ = ${fmt(chosen.G, 3)}).`,
+      `$$\\begin{aligned} ${gLines} \\end{aligned}$$ $$\\begin{aligned} ${sLines} \\end{aligned}$$ **${top.label} scores highest but cannot stop in time (braking distance ${fmt(top.stop, 3)} m), so DWA executes ${chosen.label}** ($v$ = ${fmt(chosen.v, 4)} m/s, $\\omega$ = ${fmt(chosen.w, 4)} rad/s, $G$ = ${fmt(chosen.G, 3)}).`,
     ],
   };
 }

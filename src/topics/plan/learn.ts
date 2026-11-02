@@ -292,14 +292,15 @@ export const cards: ConceptCard[] = [
     formulas: [
       '$$U(q) = \\underbrace{\\tfrac12 \\zeta\\, d(q, q_{goal})^2}_{U_{att}} + \\underbrace{\\tfrac12 \\eta \\Big(\\frac{1}{D(q)} - \\frac{1}{Q^*}\\Big)^2}_{U_{rep},\\ \\text{only where } D(q) \\le Q^*}, \\qquad F(q) = -\\nabla U(q)$$',
       '$$V_d = [\\,v - \\dot v_{max}\\Delta t,\\ v + \\dot v_{max}\\Delta t\\,] \\times [\\,\\omega - \\dot\\omega_{max}\\Delta t,\\ \\omega + \\dot\\omega_{max}\\Delta t\\,]$$',
-      '$$G(v, \\omega) = w_h\\,\\text{heading} + w_c\\,\\text{clearance} + w_v\\,\\text{speed}, \\qquad \\text{maximised over the admissible } (v, \\omega) \\in V_d$$',
+      '$$G(v, \\omega) = w_h\\,\\text{heading} + w_c\\,\\text{clearance} + w_v\\,\\text{velocity}, \\qquad \\text{maximised over the admissible } (v, \\omega) \\in V_s \\cap V_d$$',
+      '$$\\text{admissible (can still stop):}\\quad \\frac{v^2}{2\\dot v_b} \\le \\mathrm{dist}(v, \\omega) \\quad \\text{(free distance along the arc)}$$',
     ],
     what: 'A **global** planner (A*, PRM, RRT*) searches the whole known map for a complete route to the goal, but it is slow, so it runs rarely. A **local** planner runs many times a second on fresh sensor data, following that route while dodging whatever the map did not show. Three local methods: a **potential field** slides down $U = U_{att} + U_{rep}$ (attractive gain $\\zeta$, repulsive gain $\\eta$, obstacle influence distance $Q^*$, $D(q)$ the distance to the nearest obstacle); the **dynamic window approach** (DWA) picks the best $(v, \\omega)$ it can actually reach in the next control period; **velocity obstacles** rule out the velocities that would hit a moving obstacle.',
     when: '- “Which of the following motivates hierarchical (global and local) planning?” (2025 Q10: both the expense of global search and the need for high-frequency replanning).\n- “Plan paths for a fleet of holonomic robots in a warehouse: which algorithm and why?” (review deck slide 15).\n- Learning outcome: collision avoidance (velocity obstacles, dynamic window) and hybrid methods (potential fields) (review deck slide 14).',
     how: [
       'Split what is known in advance (the static map: global planner) from what changes during motion (people, other robots, execution error: local planner).',
       'Potential field: an attractive bowl centred on the goal plus repulsive hills within $Q^*$ of each obstacle; move along $-\\nabla U$. Fast and smooth, but it halts wherever the forces cancel (a local minimum), so pair it with a global planner or an escape move.',
-      'DWA: take the window of $(v, \\omega)$ reachable within one control period under the acceleration limits, drop those that could not stop before an obstacle, simulate a short arc for each of the rest, and pick the best weighted score of heading, clearance and speed.',
+      'DWA: take the window of $(v, \\omega)$ reachable within one control period under the acceleration limits, drop those that could not stop before an obstacle ($v^2/2\\dot v_b$ longer than the free distance along the arc), simulate a short arc for each of the rest, and pick the best weighted score of heading, clearance and velocity. Execute it for one period, then repeat.',
       'Velocity obstacles: for each moving obstacle, mark the cone of robot velocities that collide within the time horizon; choose the allowed velocity closest to the one you want. The reciprocal version splits the avoidance between two robots.',
       'Design answer: name the global planner for the known map and the local method for the moving things, and justify each in one clause.',
     ],
@@ -516,7 +517,7 @@ export const flashcards: Flashcard[] = [
   {
     id: 'plan-f-dwa',
     front: 'The dynamic window approach in one line, and the effect of a larger clearance weight?',
-    back: 'Score each $(v, \\omega)$ reachable within one control period that can still stop in time, by simulating a short arc: heading + clearance + speed. A larger clearance weight keeps further from obstacles but moves more slowly and may refuse narrow gaps.',
+    back: 'Score each $(v, \\omega)$ reachable within one control period that can still stop in time, by simulating a short arc: $G = w_h\\,\\text{heading} + w_c\\,\\text{clearance} + w_v\\,\\text{velocity}$. A larger clearance weight keeps further from obstacles but moves more slowly and may refuse narrow gaps; with $w_v = 0$ nothing rewards moving and the robot never sets off.',
     tags: ['local', 'parameters'],
   },
   {

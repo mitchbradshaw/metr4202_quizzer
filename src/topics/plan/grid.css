@@ -12,7 +12,9 @@
 }
 .plan-grid-left {
   position: sticky;
-  top: 8px;
+  /* Below the app's sticky top bar (56 px) and topic tabs (to 98 px), so the algorithm switch and the tool
+     row stay visible while the right column scrolls (e.g. after a prediction's "Show me"). */
+  top: 106px;
   z-index: 2;
 }
 .plan-grid-layout.is-wide .plan-grid-left {

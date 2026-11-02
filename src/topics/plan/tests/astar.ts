@@ -12,7 +12,8 @@ import { makeRng } from '../../../engine/rng';
 import { checkChoice, checkNumeric } from '../../../engine/check';
 import type { SolveInstance, Tier } from '../../../engine/types';
 import { expectedEntries, judgeEntry, judgePop, num, openTeX, pathSum, prioText, runExam, tablesTeX, workedSteps, type ExamTrace } from '../explore/astarTable';
-import { randomMap, simAccept } from '../explore/astarMaps';
+import { australiaMap, brisbaneMap, randomMap, simAccept, type MapDef } from '../explore/astarMaps';
+import { layoutLabels, type Box, type InfoSlot } from '../explore/astarLabels';
 import { tablePartData } from '../explore/astarSolve';
 import { generators } from '../solve/astar';
 
@@ -257,6 +258,37 @@ export const tests: SelfTest[] = [
         out.push(isTrue(`tier ${tier}: marks ≤ 8 (max ${marks})`, marks > 0 && marks <= 8));
       }
       return out;
+    },
+  },
+  {
+    id: 'plan-astar-labels',
+    topic: 'plan',
+    title: 'Road-map labels (A* sim and every graph figure): no label overlaps another label or a town, and every label stays in the picture (Brisbane, Australia, 40 random maps)',
+    run: () => {
+      const maps: MapDef[] = [brisbaneMap(), australiaMap(), ...Array.from({ length: 40 }, (_, k) => randomMap(1000 + 7919 * k))];
+      const fails: string[] = [];
+      let worst = 0;
+      const area = (a: Box, b: Box) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
+      for (const m of maps)
+        for (const slots of [['val', 'h'], ['h'], []] as InfoSlot[][]) {
+          const L = layoutLabels(m, { start: m.start, goal: m.goal, slots, infoChars: 8 });
+          const boxes = [...Object.entries(L.name), ...Object.entries(L.info), ...Object.entries(L.cost)].filter((e) => !!e[1]).map(([k, sp]) => ({ k, b: sp!.box }));
+          for (let i = 0; i < boxes.length; i++) {
+            const b = boxes[i].b;
+            for (let j = i + 1; j < boxes.length; j++) {
+              const a = area(b, boxes[j].b);
+              worst = Math.max(worst, a);
+              if (a > 2) fails.push(`${m.title} [${slots.join(',')}]: ${boxes[i].k} x ${boxes[j].k} (${a.toFixed(0)} px²)`);
+            }
+            for (const n of m.graph.nodes) {
+              const p = m.pos[n.id];
+              const d = Math.hypot(Math.max(b.x0 - p.x, 0, p.x - b.x1), Math.max(b.y0 - p.y, 0, p.y - b.y1));
+              if (d < 18) fails.push(`${m.title} [${slots.join(',')}]: ${boxes[i].k} covers town ${n.id}`);
+            }
+            if (b.x0 < 0 || b.y0 < 0 || b.x1 > m.vb.w || b.y1 > m.vb.h) fails.push(`${m.title} [${slots.join(',')}]: ${boxes[i].k} leaves the picture`);
+          }
+        }
+      return [isTrue(`${maps.length} maps × 3 layouts: no overlaps (worst ${worst.toFixed(1)} px²)`, fails.length === 0, fails.slice(0, 4).join(' | '))];
     },
   },
 ];

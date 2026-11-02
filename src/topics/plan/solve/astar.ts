@@ -25,6 +25,23 @@ import {
   type NameOf,
 } from '../explore/astarTable';
 import { makeAStarFigure, makeAStarTablePart } from '../explore/astarSolve';
+import { registerTraps } from '../../../engine/traps';
+
+// The planning traps logged by plan-astar, plan-search-order and plan-admissible (and the step-table part), so the
+// trap log shows real titles. (Registered here because the topic's TopicDef.traps lives in a file this track does
+// not own; registerTraps ignores ids that are already known.)
+registerTraps([
+  { id: 'plan-astar-g-edge', title: 'g is the whole route, not the last road', detail: '$g(m) = g(n) + c(n, m)$: the cost of reaching the expanded town plus the road out of it.' },
+  { id: 'plan-astar-missed-improve', title: 'A cheaper route replaces an Open entry', detail: 'When an expansion reaches a town already in Open more cheaply, Dijkstra and A* replace its $g$ and parent (2024 Q29: SL goes from 8.6 via H to 7.8 via SB).' },
+  { id: 'plan-astar-worse-route', title: 'A dearer route changes nothing', detail: 'Only a strictly smaller $g$ replaces an Open entry; a longer route leaves its $g$, $f$ and parent as they were.' },
+  { id: 'plan-astar-inadmissible', title: 'An overestimating h loses the guarantee', detail: 'If some $h(n) > h^*(n)$, A* can pop the goal by a longer route: the answer is no longer guaranteed to be the shortest.' },
+  { id: 'plan-hstar-straight-line', title: 'h* is measured along the roads', detail: 'The true cost to go $h^*(n)$ is the shortest route along the graph, not the straight-line distance (which is only a lower bound).' },
+  { id: 'plan-astar-closed', title: 'A Closed town is never popped again', detail: 'Once expanded, a town’s cost is final; pop only from Open.' },
+  { id: 'plan-astar-unseen', title: 'Only Open towns can be popped', detail: 'A town nobody has reached yet is not in Open, whatever its $h$.' },
+  { id: 'plan-astar-lowest-g', title: 'A* pops by f = g + h, not g', detail: 'The lowest $g$ alone is Dijkstra’s rule; A* adds the estimate still to go.' },
+  { id: 'plan-astar-lowest-h', title: 'A* pops by f = g + h, not h', detail: 'The lowest $h$ alone is greedy best-first, which ignores the distance already driven.' },
+  { id: 'plan-astar-not-lowest', title: 'Pop the lowest priority in Open', detail: 'Scan the whole Open list each step (or keep it sorted): A* pops the lowest $f$, Dijkstra the lowest $g$, BFS the oldest entry.' },
+]);
 
 interface Problem {
   map: MapDef;
@@ -122,7 +139,7 @@ function lengthPart(p: Problem, t: ExamTrace, label: string, marks = 1, id = 'le
   const traps: NumericPart['traps'] = [];
   const ga = t.goalAdded;
   if (ga && Math.abs(ga.g - t.cost) > 0.05)
-    traps.push({ value: ga.g, message: `That is ${p.name(p.goal)}'s cost when it first entered Open (step ${ga.k}). Its entry improved later; A* only stops when the goal is **popped**.`, trapId: 'plan-astar-goal-early' });
+    traps.push({ value: ga.g, message: `That is ${p.name(p.goal)}'s cost when it first entered Open (step ${ga.k}). Its entry improved later; A* only stops when the goal is **popped**.`, trapId: 'goal-on-insert' });
   const nb = neighboursOf(p.map.graph);
   const bfs = graphSearch(nb, p.start, p.goal, 'bfs');
   if (bfs.path) {
@@ -389,7 +406,7 @@ function tier3Inadmissible(rng: Rng): SolveInstance {
 }
 
 function tier3Parent(rng: Rng): SolveInstance {
-  const p = randomProblem(rng, (s) => s.improves > 0 && s.pops >= 4);
+  const p = randomProblem(rng, (s) => s.improves === 1 && s.pops >= 4);
   const t = runExam(p.map.graph, p.start, p.goal, 'astar', (n) => p.h[n]);
   const name = p.name;
   const st = t.steps.find((s) => s.updates.some((u) => u.kind === 'improve'));

@@ -187,7 +187,7 @@ export function updateLine(u: StepUpdate, step: ExamStep, algo: Algo, name: Name
     case 'improve':
       return `${Y}: already in Open with $g = ${num(u.oldG ?? NaN)}$ (parent ${name(u.oldParent ?? '?')}). Via ${P}, ${gExpr} is **cheaper**, so its parent becomes ${P}${fExpr}.`;
     case 'worse':
-      if (algo === 'bfs' || algo === 'dfs') return `${Y}: already in the queue, so it is left alone (BFS ignores road lengths).`;
+      if (algo === 'bfs' || algo === 'dfs') return `${Y}: already in the ${algo === 'bfs' ? 'queue' : 'stack'}, so it is left alone (${algo === 'bfs' ? 'BFS' : 'DFS'} ignores road lengths).`;
       return `${Y}: via ${P} would be ${gExpr}, not cheaper than its current $g = ${num(u.oldG ?? NaN)}$, so no change.`;
   }
 }
@@ -333,7 +333,7 @@ export const valueOk = (typed: number, ans: number) => Number.isFinite(typed) &&
 
 export function judgeEntry(e: ExpectedEntry, typed: number, algo: Algo, name: NameOf): { ok: boolean; message: Rich } {
   const q = typedQuantity(algo) ?? 'f';
-  if (valueOk(typed, e.value)) return { ok: true, message: `✓ ${name(e.node)}: ${e.explain}` };
+  if (valueOk(typed, e.value)) return { ok: true, message: `✓ ${e.explain}` };
   if (Number.isFinite(e.wrongValue) && valueOk(typed, e.wrongValue)) {
     if (e.kind === 'worse')
       return { ok: false, message: `✗ ${name(e.node)}: you replaced its entry with a **worse** route. Keep the cheaper one: $${q} = ${num(e.value)}$. ${e.explain}` };

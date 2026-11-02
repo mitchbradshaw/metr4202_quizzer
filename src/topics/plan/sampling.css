@@ -81,3 +81,438 @@
 .plan-sampling-steerfig > .row {
   margin-top: 4px;
 }
+
+/* ---------------------------------------------------------------- edges and marks (RRT* by hand and the growth sim) */
+.plan-sampling-cand {
+  fill: none;
+  stroke: var(--text-2);
+  stroke-width: 1.4;
+  stroke-dasharray: 4 3;
+  opacity: 0.85;
+}
+.plan-sampling-faded {
+  opacity: 0.3;
+}
+.plan-sampling-rrt {
+  fill: none;
+  stroke: var(--m1);
+  stroke-width: 2.2;
+  stroke-dasharray: 6 4;
+  stroke-linecap: round;
+}
+.plan-sampling-rrtlabel {
+  fill: var(--m1);
+}
+.plan-sampling-chosen {
+  fill: none;
+  stroke: var(--m3);
+  stroke-width: 3.6;
+  stroke-linecap: round;
+}
+.plan-sampling-chosenlabel {
+  fill: var(--m3);
+}
+.plan-sampling-rewired {
+  fill: none;
+  stroke: var(--m4);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+}
+.plan-sampling-removed {
+  fill: none;
+  stroke: var(--bad);
+  stroke-width: 2.2;
+  stroke-dasharray: 3 3;
+}
+.plan-sampling-xmark-bg {
+  fill: var(--surface);
+  stroke: var(--bad);
+  stroke-width: 1.5;
+}
+.plan-sampling-xmark {
+  fill: none;
+  stroke: var(--bad);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.plan-sampling-pathedge {
+  stroke: var(--text);
+  stroke-width: 2.6;
+}
+.plan-sampling-nbring {
+  fill: none;
+  stroke: var(--m2);
+  stroke-width: 2;
+}
+.plan-sampling-cost {
+  fill: var(--text-2);
+}
+.plan-sampling-rwyes {
+  fill: var(--m4);
+}
+.plan-sampling-ray {
+  fill: none;
+  stroke: var(--text-3);
+  stroke-width: 1.3;
+  stroke-dasharray: 2 4;
+}
+.plan-sampling-rand {
+  fill: none;
+  stroke: var(--m2);
+  stroke-width: 1.8;
+}
+.plan-sampling-nearring {
+  fill: none;
+  stroke: var(--m1);
+  stroke-width: 2.2;
+}
+.plan-sampling-blocked {
+  fill: none;
+  stroke: var(--bad);
+  stroke-width: 1.7;
+  stroke-dasharray: 2 3;
+}
+.plan-sampling-rrtnew {
+  fill: none;
+  stroke: var(--m1);
+  stroke-width: 3.4;
+  stroke-linecap: round;
+}
+.plan-sampling-badnew {
+  fill: none;
+  stroke: var(--bad);
+  stroke-width: 3.4;
+  stroke-linecap: round;
+}
+.plan-sampling-prmedge {
+  fill: none;
+  stroke: var(--ok);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+}
+.plan-sampling-xrej {
+  fill: var(--surface);
+  stroke: var(--bad);
+  stroke-width: 2;
+}
+.plan-sampling-rejmark {
+  fill: none;
+  stroke: var(--bad);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.plan-sampling-tag {
+  font: 600 11.5px var(--font);
+  font-variant-numeric: tabular-nums;
+  fill: var(--text);
+}
+.plan-sampling-tag-m1 {
+  fill: var(--m1);
+}
+.plan-sampling-tag-m2 {
+  fill: var(--m2);
+}
+.plan-sampling-tag-m3 {
+  fill: var(--m3);
+}
+.plan-sampling-tag-m4 {
+  fill: var(--m4);
+}
+.plan-sampling-tag-bad {
+  fill: var(--bad);
+}
+
+/* ---------------------------------------------------------------- draggable handles */
+.plan-sampling-handle {
+  fill: var(--accent);
+  fill-opacity: 0.16;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.plan-sampling-start {
+  fill-opacity: 0.85;
+}
+.plan-sampling-goaldot {
+  fill: var(--accent);
+}
+.plan-sampling-endlabel {
+  fill: var(--accent);
+  font-size: 12.5px;
+}
+.plan-sampling-drag {
+  cursor: grab;
+  outline: none;
+}
+.plan-sampling-drag:active {
+  cursor: grabbing;
+}
+.plan-sampling-drag:focus-visible .plan-sampling-handle {
+  stroke-width: 3.5;
+  fill-opacity: 0.32;
+}
+
+/* ---------------------------------------------------------------- RRT* by hand */
+.plan-sampling-hand {
+  display: block;
+  overflow: visible;
+  touch-action: none;
+  user-select: none;
+}
+.plan-sampling-hand text {
+  pointer-events: none;
+}
+.plan-sampling-say {
+  margin: 6px 0 4px;
+  line-height: 1.55;
+  min-height: 3.1em;
+}
+.plan-sampling-tight {
+  margin: 2px 0 6px;
+}
+.plan-sampling-v {
+  white-space: nowrap;
+}
+.plan-sampling-v i {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 1.08em;
+}
+.plan-sampling-v sub {
+  font-size: 0.72em;
+}
+.plan-sampling-table {
+  font-size: 13px;
+  width: 100%;
+}
+.plan-sampling-table th,
+.plan-sampling-table td {
+  padding: 3px 7px;
+}
+.plan-sampling-sum {
+  display: block;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.plan-sampling-pick {
+  color: var(--m3);
+}
+.plan-sampling-yes {
+  color: var(--m4);
+}
+.plan-sampling-ok {
+  color: var(--ok);
+}
+.plan-sampling-no {
+  color: var(--bad);
+}
+.plan-sampling-rownear td {
+  background: color-mix(in srgb, var(--m1) 9%, transparent);
+}
+.plan-sampling-rowpick td {
+  background: color-mix(in srgb, var(--m3) 13%, transparent);
+}
+.plan-sampling-rowrewire td {
+  background: color-mix(in srgb, var(--m4) 11%, transparent);
+}
+.plan-sampling-vs {
+  margin-top: 10px;
+}
+
+/* ---------------------------------------------------------------- growth simulation */
+.plan-sampling-stage {
+  position: relative;
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.plan-sampling-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.plan-sampling-over {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  user-select: none;
+  touch-action: none;
+}
+.plan-sampling-over .plan-sampling-drag {
+  pointer-events: all;
+}
+.plan-sampling-details {
+  min-height: 186px;
+}
+.plan-sampling-tables {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.plan-sampling-onetable {
+  max-width: 470px;
+}
+.plan-sampling-flag {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+.plan-sampling-flag-m1 {
+  color: var(--m1);
+  background: color-mix(in srgb, var(--m1) 12%, transparent);
+}
+.plan-sampling-flag-m3 {
+  color: var(--m3);
+  background: color-mix(in srgb, var(--m3) 14%, transparent);
+}
+.plan-sampling-hint {
+  margin: 6px 0;
+  line-height: 1.5;
+}
+.plan-sampling-toggles {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 10px;
+}
+.plan-sampling-h {
+  margin: 14px 0 2px;
+}
+
+/* ---------------------------------------------------------------- animation */
+.plan-sampling-grow {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: plan-sampling-grow 0.5s ease-out both;
+}
+.plan-sampling-pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: plan-sampling-pop 0.35s ease-out both;
+}
+.plan-sampling-flash {
+  animation: plan-sampling-flash 1.2s ease-out 0.3s both;
+}
+.plan-sampling-grow.plan-sampling-flash {
+  animation:
+    plan-sampling-grow 0.5s ease-out both,
+    plan-sampling-flash 1.2s ease-out 0.45s both;
+}
+/* One growth step: elements appear stage by stage (--plan-sampling-st seconds apart). */
+.plan-sampling-step > * {
+  animation: plan-sampling-in 0.2s ease-out both;
+}
+.plan-sampling-step > .plan-sampling-grow {
+  animation-name: plan-sampling-grow;
+  animation-duration: 0.35s;
+}
+.plan-sampling-step > .plan-sampling-s1 {
+  animation-delay: 0s;
+}
+.plan-sampling-step > .plan-sampling-s2 {
+  animation-delay: calc(var(--plan-sampling-st, 0.11s) * 1);
+}
+.plan-sampling-step > .plan-sampling-s3 {
+  animation-delay: calc(var(--plan-sampling-st, 0.11s) * 2);
+}
+.plan-sampling-step > .plan-sampling-s4 {
+  animation-delay: calc(var(--plan-sampling-st, 0.11s) * 3);
+}
+.plan-sampling-step > .plan-sampling-s5 {
+  animation-delay: calc(var(--plan-sampling-st, 0.11s) * 4);
+}
+.plan-sampling-step > .plan-sampling-s6 {
+  animation-delay: calc(var(--plan-sampling-st, 0.11s) * 5);
+}
+@keyframes plan-sampling-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes plan-sampling-grow {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes plan-sampling-flash {
+  0% {
+    stroke-width: 3.2;
+  }
+  30% {
+    stroke-width: 6.5;
+  }
+  100% {
+    stroke-width: 3.2;
+  }
+}
+@keyframes plan-sampling-pop {
+  from {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .plan-sampling-grow,
+  .plan-sampling-pop,
+  .plan-sampling-flash,
+  .plan-sampling-step > * {
+    animation: none !important;
+  }
+}
+.plan-sampling-key {
+  display: inline-block;
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  vertical-align: middle;
+  margin-right: 2px;
+}
+.plan-sampling-thsel {
+  background: var(--surface-2);
+}
+
+/* ---------------------------------------------------------------- radius trade-off (RRT* runs on the same samples) */
+.plan-sampling-radiusbox {
+  margin: 4px 0 10px;
+}
+.plan-sampling-radiusbox .plan-sampling-table td {
+  white-space: nowrap;
+}
+.plan-sampling-radiusbox .plan-sampling-table th:not(:first-child),
+.plan-sampling-radiusbox .plan-sampling-table td:not(:first-child) {
+  text-align: right;
+}
+.plan-sampling-note {
+  margin: 4px 2px 0;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.plan-sampling-steerlist {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  font: 500 13px var(--mono);
+  color: var(--text-2);
+}
+.plan-sampling-steerlist li {
+  margin: 2px 0;
+}

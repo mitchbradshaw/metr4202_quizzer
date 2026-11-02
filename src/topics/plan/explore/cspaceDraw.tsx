@@ -132,10 +132,15 @@ export function wsArcD(c: Vec2, r: number, a0: number, a1: number): string {
   return `M${p(a0)}A${R} ${R} 0 ${Math.abs(span) > Math.PI ? 1 : 0} ${span > 0 ? 0 : 1} ${p(a1)}`;
 }
 
-/** SVG path of every C-space cell for which `on(k)` holds (row runs as rectangles). */
+/**
+ * SVG path of every C-space cell for which `on(k)` holds (row runs as rectangles). Each run is drawn 0.6 units
+ * taller than its row so it overlaps the row below: two anti-aliased edges meeting at a fractional pixel would
+ * otherwise leave a faint seam (a horizontal line through a band), and pixel-snapping them leaves 1-px gaps.
+ */
 export function cellsPathD(g: CGrid, on: (k: number) => boolean): string {
   const n = g.n;
   const d = FR.S / n;
+  const h = (d + 0.6).toFixed(2);
   let out = '';
   for (let j = 0; j < n; j++) {
     const y = FR.T + FR.S - (j + 1) * d;
@@ -147,7 +152,7 @@ export function cellsPathD(g: CGrid, on: (k: number) => boolean): string {
       }
       const s = i;
       while (i < n && on(j * n + i)) i++;
-      out += `M${(FR.L + s * d).toFixed(2)} ${y.toFixed(2)}h${((i - s) * d).toFixed(2)}v${d.toFixed(2)}h${(-(i - s) * d).toFixed(2)}z`;
+      out += `M${(FR.L + s * d).toFixed(2)} ${y.toFixed(2)}h${((i - s) * d).toFixed(2)}v${h}h${(-(i - s) * d).toFixed(2)}z`;
     }
   }
   return out;

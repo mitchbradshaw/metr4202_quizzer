@@ -78,7 +78,7 @@ export function makeAStarTablePart(t: ExamTrace, name: NameOf): ComponentType<Cu
       const step = steps[j];
       const v: PopVerdict = judgePop(step, node, 'astar', name, t.goal);
       if (!v.ok) {
-        update(j, { ...a, tries: a.tries + 1, lastMsg: v.message, firstTrap: a.firstTrap ?? (v.trap ? `plan-astar-${v.trap}` : undefined) });
+        update(j, { ...a, tries: a.tries + 1, lastMsg: v.message, firstTrap: a.firstTrap ?? (v.trap ? (v.trap === 'goal-early' ? 'goal-on-insert' : `plan-astar-${v.trap}`) : undefined) });
         return;
       }
       const entries = expectedEntries(step, 'astar', name);
@@ -107,7 +107,7 @@ export function makeAStarTablePart(t: ExamTrace, name: NameOf): ComponentType<Cu
       const res: Record<string, { ok: boolean; message: string }> = {};
       for (const e of expectedEntries(step, 'astar', name)) {
         vals[e.node] = num(e.value);
-        res[e.node] = { ok: true, message: `${name(e.node)}: ${e.explain}` };
+        res[e.node] = { ok: true, message: e.explain };
       }
       update(j, { ...a, pick: step.popped, vals, results: res, revealed: true, done: true });
     };

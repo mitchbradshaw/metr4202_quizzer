@@ -92,6 +92,7 @@ export function runField(scene: FieldScene, f: FieldParams, mode: EscapeMode, se
   const first = descend(start, goal, obstacles, f, o);
   const path = first.path.slice();
   let status = first.status;
+  if (status === 'local-min') settleEnd(path, scene, f);
   const firstStuck = status === 'local-min' ? { ...path[path.length - 1] } : null;
   const walks: [number, number][] = [];
   if (mode === 'walk') {
@@ -114,9 +115,40 @@ export function runField(scene: FieldScene, f: FieldParams, mode: EscapeMode, se
       const res = descend(p, goal, obstacles, f, { ...o, maxIter: Math.max(200, FIELD_MAX_ITER - path.length) });
       for (let k = 1; k < res.path.length; k++) path.push(res.path[k]);
       status = res.status;
+      if (status === 'local-min') settleEnd(path, scene, f);
     }
   }
   return { path, status, walks, firstStuck, plan: null };
+}
+
+/**
+ * The fixed 5 cm steps stall by jittering up to one step either side of the balance point, where the pull and the
+ * push do not quite cancel yet. Settle there with shrinking steps that must each lower U, so the reported stop is
+ * where F_att + F_rep ≈ 0 (|∇U| drops from ~0.3 to ~0.002 in the U-trap). Never climbs, never enters an obstacle.
+ */
+export function settle(p: Vec2, goal: Vec2, obstacles: readonly Shape[], f: FieldParams): Vec2 {
+  let q = { ...p };
+  let u = potential(q, goal, obstacles, f);
+  for (const st of [0.025, 0.012, 0.006, 0.003, 0.0015, 0.0008, 0.0004]) {
+    for (let i = 0; i < 60; i++) {
+      const F = force(q, goal, obstacles, f);
+      const m = Math.hypot(F.x, F.y);
+      if (m < 1e-9) return q;
+      const nq = { x: q.x + (st * F.x) / m, y: q.y + (st * F.y) / m };
+      const un = potential(nq, goal, obstacles, f);
+      if (!(un < u)) break;
+      q = nq;
+      u = un;
+    }
+  }
+  return q;
+}
+
+/** Append the settled stall point to a path that ended in a local minimum. */
+function settleEnd(path: Vec2[], scene: FieldScene, f: FieldParams): void {
+  const end = path[path.length - 1];
+  const q = settle(end, scene.goal, scene.obstacles, f);
+  if (Math.hypot(q.x - end.x, q.y - end.y) > 1e-4) path.push(q);
 }
 
 /**

@@ -671,3 +671,44 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* plan-search-order: write the pop sequence (solve/searchSeq.tsx) */
+.plan-seq {
+  display: grid;
+  gap: 8px;
+}
+.plan-seq-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.plan-seq-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.plan-seq-in {
+  font: 600 0.98rem var(--mono);
+  min-width: 0;
+  width: min(100%, 360px);
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+.plan-seq-in:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.plan-seq-in.is-ok {
+  border-color: var(--ok);
+}
+.plan-seq-in.is-bad {
+  border-color: var(--bad);
+}
+.plan-seq-echo {
+  font-family: var(--mono);
+}

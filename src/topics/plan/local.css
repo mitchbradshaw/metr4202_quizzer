@@ -1,0 +1,429 @@
+/* Local (reactive) planning simulations: potential fields (PotentialField.tsx) and the dynamic window
+   (DynamicWindow.tsx). Every class is prefixed .plan-local-. Colours come from the theme tokens only. */
+
+.plan-local-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  scroll-margin-top: 112px; /* below the sticky top bar and tabs when "Show me" scrolls here */
+}
+.plan-local-section {
+  scroll-margin-top: 112px;
+}
+.plan-local-toolbar .select {
+  min-height: 38px;
+}
+.plan-local-toolbar .btn {
+  min-height: 38px;
+}
+.plan-local-toolbar-sep {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border);
+  margin: 2px 4px;
+}
+.plan-local-tlabel {
+  font-size: 0.84rem;
+  color: var(--text-3);
+}
+
+.plan-local-main {
+  display: grid;
+  grid-template-columns: minmax(0, 560px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.plan-local-main.is-dwa {
+  grid-template-columns: minmax(0, 1.32fr) minmax(0, 1fr);
+}
+
+.plan-local-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px 10px;
+  min-width: 0;
+}
+.plan-local-panel > * + * {
+  margin-top: 8px;
+}
+.plan-local-panel h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.plan-local-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.plan-local-head .muted {
+  font-size: 0.8rem;
+}
+
+/* ------------------------------------------------------------------ world views (canvas under SVG) */
+
+.plan-local-world {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  user-select: none;
+}
+.plan-local-world.is-dwa {
+  aspect-ratio: 640 / 460;
+}
+.plan-local-world > canvas {
+  position: absolute;
+  left: calc(30 / 560 * 100%);
+  top: calc(10 / 560 * 100%);
+  width: calc(520 / 560 * 100%);
+  height: calc(520 / 560 * 100%);
+  border-radius: 2px;
+}
+.plan-local-world > canvas.plan-local-basin {
+  image-rendering: pixelated;
+}
+.plan-local-world > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+.plan-local-world > svg:focus {
+  outline: none;
+}
+.plan-local-drag {
+  cursor: grab;
+}
+.plan-local-drag:active {
+  cursor: grabbing;
+}
+.plan-local-drag:focus {
+  outline: none;
+}
+.plan-local-drag:focus-visible .plan-local-focus {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-dasharray: 4 3;
+  fill: none;
+}
+.plan-local-drag:focus-visible .plan-local-obs {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+.plan-local-obs {
+  fill: var(--surface-3);
+  stroke: var(--text-2);
+  stroke-width: 1.5;
+}
+.plan-local-obs.is-sel {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+.plan-local-qring {
+  fill: none;
+  stroke: var(--m2);
+  stroke-width: 1.2;
+  stroke-dasharray: 5 4;
+  opacity: 0.85;
+  pointer-events: none;
+}
+.plan-local-label {
+  font: 600 13px var(--font);
+  fill: var(--text);
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.plan-local-note {
+  font: 11.5px var(--font);
+  fill: var(--text-2);
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.plan-local-path-future {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 2;
+  stroke-dasharray: 2 4;
+  opacity: 0.7;
+  pointer-events: none;
+}
+.plan-local-path-done {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.plan-local-walk {
+  fill: none;
+  stroke: var(--pred);
+  stroke-width: 1.6;
+  stroke-dasharray: 4 3;
+  pointer-events: none;
+}
+.plan-local-plan {
+  fill: none;
+  stroke: var(--m3);
+  stroke-width: 2.4;
+  stroke-dasharray: 8 5;
+  pointer-events: none;
+}
+.plan-local-arrows {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 1.1;
+  opacity: 0.55;
+  pointer-events: none;
+}
+.plan-local-robot {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+.plan-local-robot.is-walk {
+  fill: var(--pred);
+}
+.plan-local-stuck {
+  fill: none;
+  stroke: var(--bad);
+  stroke-width: 2.5;
+}
+.plan-local-playing .plan-local-path-future,
+.plan-local-playing .plan-local-hide-play {
+  display: none;
+}
+
+.plan-local-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.plan-local-bar .plan-local-pos {
+  margin-left: auto;
+}
+
+/* ------------------------------------------------------------------ legends */
+
+.plan-local-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 0.8rem;
+  color: var(--text-2);
+}
+.plan-local-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.plan-local-swatch {
+  display: inline-block;
+  width: 22px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+}
+
+/* ------------------------------------------------------------------ side panel */
+
+.plan-local-sliders > * + * {
+  margin-top: 2px;
+}
+.plan-local-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+.plan-local-ro {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.plan-local-ro .readout {
+  padding: 5px 8px;
+}
+.plan-local-ro .readout-value {
+  font-size: 0.95rem;
+}
+.plan-local-status .callout {
+  margin: 0;
+}
+.plan-local-live {
+  font-size: 0.86rem;
+  color: var(--text-2);
+  min-height: 1.3em;
+}
+
+/* ------------------------------------------------------------------ below the main row */
+
+.plan-local-profiles {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+.plan-local-cap {
+  font-size: 0.82rem;
+  color: var(--text-3);
+  margin: 0 2px;
+}
+.plan-local-predicts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+  align-items: start;
+}
+.plan-local-predicts .predict {
+  margin: 0;
+}
+.plan-local-section {
+  margin-top: 12px;
+}
+.plan-local-section h4 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+}
+
+/* ------------------------------------------------------------------ dynamic window */
+
+.plan-local-vbox {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 420 / 330;
+  user-select: none;
+}
+/* position and size are set inline to the box V_s (computed from the plot geometry) */
+.plan-local-vbox > canvas {
+  position: absolute;
+  image-rendering: pixelated;
+}
+.plan-local-vbox > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.plan-local-win {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.2;
+}
+.plan-local-box {
+  fill: none;
+  stroke: var(--text-2);
+  stroke-width: 1.4;
+}
+.plan-local-cand-x {
+  stroke: var(--bad);
+  stroke-width: 1.6;
+}
+.plan-local-best {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 2.4;
+}
+.plan-local-arc {
+  fill: none;
+  stroke-width: 1.3;
+  pointer-events: none;
+}
+.plan-local-arc.is-bad {
+  stroke: var(--bad);
+  stroke-dasharray: 3 3;
+  opacity: 0.45;
+}
+.plan-local-arc.is-best {
+  stroke: var(--text);
+  stroke-width: 3.4;
+  opacity: 1;
+}
+.plan-local-trail {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  opacity: 0.7;
+  pointer-events: none;
+}
+.plan-local-mover {
+  fill: var(--m4);
+  fill-opacity: 0.25;
+  stroke: var(--m4);
+  stroke-width: 2;
+}
+.plan-local-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.plan-local-table th,
+.plan-local-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.plan-local-table th:first-child,
+.plan-local-table td:first-child {
+  text-align: left;
+}
+.plan-local-table tr.is-best td {
+  font-weight: 700;
+}
+.plan-local-sample {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.plan-local-sample > * + * {
+  margin-top: 6px;
+}
+.plan-local-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 0.8rem;
+  color: var(--text-2);
+}
+.plan-local-twocol {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 4px 16px;
+}
+.plan-local-vo {
+  display: grid;
+  grid-template-columns: minmax(0, 380px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.plan-local-vo-box {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  user-select: none;
+}
+.plan-local-vo-box > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+.plan-local-cone {
+  fill: var(--bad);
+  fill-opacity: 0.16;
+  stroke: var(--bad);
+  stroke-width: 1.5;
+}

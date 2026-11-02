@@ -67,6 +67,50 @@ export function edgeLabelPos(a: Vec2, b: Vec2, away: Vec2, off: number): Vec2 {
   return Math.hypot(s1.x - away.x, s1.y - away.y) >= Math.hypot(s2.x - away.x, s2.y - away.y) ? s1 : s2;
 }
 
+export type LabelAnchor = 'start' | 'middle' | 'end';
+
+/**
+ * Candidate spots for a vertex label, one in the middle of each angular gap between the lines that meet at the
+ * vertex (screen coordinates), widest gap first, so a label never sits on an edge. `towards` are the other ends
+ * of those lines; `blocked` adds directions (radians, screen y down) already taken by something else.
+ */
+export function gapLabelSpots(p: Vec2, towards: readonly Vec2[], r = 15, blocked: readonly number[] = []): { x: number; y: number; anchor: LabelAnchor; gap: number }[] {
+  const angs = [...towards.filter((q) => Math.hypot(q.x - p.x, q.y - p.y) > 1e-6).map((q) => Math.atan2(q.y - p.y, q.x - p.x)), ...blocked].sort((a, b) => a - b);
+  const dirs: { dir: number; gap: number }[] = [];
+  if (!angs.length) dirs.push({ dir: -0.75 * Math.PI, gap: 2 * Math.PI }, { dir: -0.25 * Math.PI, gap: 2 * Math.PI }, { dir: 0.5 * Math.PI, gap: 2 * Math.PI });
+  else if (angs.length === 1) dirs.push({ dir: angs[0] + Math.PI, gap: 2 * Math.PI }, { dir: angs[0] + 0.55 * Math.PI, gap: Math.PI }, { dir: angs[0] - 0.55 * Math.PI, gap: Math.PI });
+  else
+    for (let i = 0; i < angs.length; i++) {
+      const a = angs[i];
+      const b = i + 1 < angs.length ? angs[i + 1] : angs[0] + 2 * Math.PI;
+      if (b - a > 0.5) dirs.push({ dir: (a + b) / 2, gap: b - a });
+    }
+  if (!dirs.length) dirs.push({ dir: -0.75 * Math.PI, gap: 0 });
+  dirs.sort((u, v) => v.gap - u.gap);
+  return dirs.map(({ dir, gap }) => {
+    const c = Math.cos(dir);
+    const sn = Math.sin(dir);
+    // A label is about 16 px wide and 14 px tall (with its subscript): anchor it on the side facing the vertex.
+    const anchor: LabelAnchor = c > 0.38 ? 'start' : c < -0.38 ? 'end' : 'middle';
+    return { x: p.x + c * r, y: p.y + sn * r + 4 + (sn > 0.38 ? 3 : 0), anchor, gap };
+  });
+}
+
+/** Where a vertex label goes: in the middle of the widest angular gap between the lines that meet at the vertex. */
+export function freeLabelPos(p: Vec2, towards: readonly Vec2[], r = 15, blocked: readonly number[] = []): { x: number; y: number; anchor: LabelAnchor } {
+  const q = gapLabelSpots(p, towards, r, blocked)[0];
+  return { x: q.x, y: q.y, anchor: q.anchor };
+}
+
+/** Screen positions of the tree neighbours of vertex `id` (its parent and its children). */
+export function treeNeighbours(nodes: readonly { id: number; parent: number; p: Vec2 }[], id: number, P: (q: Vec2) => Vec2): Vec2[] {
+  const out: Vec2[] = [];
+  const n = nodes[id];
+  if (n.parent >= 0) out.push(P(nodes[n.parent].p));
+  for (const m of nodes) if (m.parent === id) out.push(P(m.p));
+  return out;
+}
+
 /** The 2025 Q29-style figure for one instance: tree, printed edge lengths, x_new and its neighbourhood. */
 export function rrtTreeFigure(scene: HandScene, opts: { descendant?: number | null } = {}): ComponentType {
   const { nodes, xnew, radius } = scene;
@@ -78,6 +122,7 @@ export function rrtTreeFigure(scene: HandScene, opts: { descendant?: number | nu
   const printed = new Set<number>();
   for (const id of labelled) for (const k of pathIds(nodes, id)) if (k !== 0) printed.add(k);
   const awayPx = { x: v.X(xnew), y: v.Y(xnew) };
+  const P = (q: Vec2): Vec2 => ({ x: v.X(q), y: v.Y(q) });
   function TreeFigure() {
     return (
       <svg
@@ -109,10 +154,15 @@ export function rrtTreeFigure(scene: HandScene, opts: { descendant?: number | nu
         ))}
         {nodes.map((n) => {
           if (!labelled.has(n.id)) return null;
-          const p = { x: v.X(n.p), y: v.Y(n.p) };
-          // Label above-left of the node, or below when it sits under x_new.
-          const below = n.p.y < xnew.y - 0.4;
-          return <SubLabel key={`t${n.id}`} x={p.x + (n.id === 0 ? 12 : -10)} y={below ? p.y + 19 : p.y - 9} sub={n.label} />;
+          // In the widest gap between the vertex's edges that keeps the name inside the figure, so it never
+          // sits on an edge or its printed length.
+          const spots = gapLabelSpots({ x: v.X(n.p), y: v.Y(n.p) }, treeNeighbours(nodes, n.id, P), n.id === 0 ? 16 : 14);
+          const inside = (q: (typeof spots)[number]) => {
+            const x0 = q.anchor === 'start' ? q.x : q.anchor === 'end' ? q.x - 18 : q.x - 9;
+            return x0 >= 2 && x0 + 18 <= v.W - 2 && q.y - 13 >= 2 && q.y + 5 <= v.H - 2;
+          };
+          const q = spots.find(inside) ?? spots[0];
+          return <SubLabel key={`t${n.id}`} x={q.x} y={q.y} anchor={q.anchor} sub={n.label} />;
         })}
         <line x1={v.X(xnew)} y1={v.Y(xnew)} x2={v.X(xnew) + radius * v.s * Math.cos(-0.5)} y2={v.Y(xnew) - radius * v.s * Math.sin(-0.5)} className="plan-sampling-radius" />
         <Halo x={v.X(xnew) + radius * v.s * 0.62 * Math.cos(-0.5)} y={v.Y(xnew) - radius * v.s * 0.62 * Math.sin(-0.5) + 14} className="plan-sampling-num plan-sampling-muted">
@@ -158,7 +208,8 @@ export function steerFigure(start: Pose, legs: readonly SteerLeg[]): ComponentTy
     y1 = c + 1.5;
   }
   const PAD = 34;
-  const s = Math.min(70, 480 / Math.max(x1 - x0, ((y1 - y0) * 480) / 300));
+  // About 560 × 360 px at most, so the arcs and their end-pose labels are easy to read next to the parts.
+  const s = Math.min(110, 560 / Math.max(x1 - x0, ((y1 - y0) * 560) / 360));
   const W = Math.round((x1 - x0) * s + 2 * PAD);
   const H = Math.round((y1 - y0) * s + 2 * PAD);
   const X = (x: number) => PAD + (x - x0) * s;
@@ -179,6 +230,10 @@ export function steerFigure(start: Pose, legs: readonly SteerLeg[]): ComponentTy
     const a = Math.atan2(by - ay, bx - ax);
     return `M${ax.toFixed(1)} ${ay.toFixed(1)}L${bx.toFixed(1)} ${by.toFixed(1)}M${(bx - h * Math.cos(a - 0.45)).toFixed(1)} ${(by - h * Math.sin(a - 0.45)).toFixed(1)}L${bx.toFixed(1)} ${by.toFixed(1)}L${(bx - h * Math.cos(a + 0.45)).toFixed(1)} ${(by - h * Math.sin(a + 0.45)).toFixed(1)}`;
   };
+  const centresShown = legs.some((l) => {
+    const c = arcCentre(l.from, l.v, l.w);
+    return !!c && c.cx > x0 && c.cx < x1 && c.cy > y0 && c.cy < y1;
+  });
   function SteerFigure() {
     const [show, setShow] = useState(false);
     return (
@@ -232,9 +287,18 @@ export function steerFigure(start: Pose, legs: readonly SteerLeg[]): ComponentTy
                   <path d={d} fill="none" stroke={col} strokeWidth={3} strokeLinecap="round" />
                   <path d={arrow(l.to, 26)} fill="none" stroke={col} strokeWidth={2} />
                   <circle cx={X(l.to.x)} cy={Y(l.to.y)} r={4.5} fill={col} />
-                  <Halo x={X(l.to.x) + 8} y={Y(l.to.y) - 9} anchor="start" className="plan-sampling-num" fill={col}>
-                    {`${i + 1}: (${l.to.x.toFixed(2)}, ${l.to.y.toFixed(2)}), θ ${Number(l.to.theta.toFixed(3))}`}
-                  </Halo>
+                  {(() => {
+                    // Beside the end pose, square to its heading: left of it for odd commands, right for even, so
+                    // the labels of two short consecutive commands never land on top of each other.
+                    const side = i % 2 === 0 ? 1 : -1;
+                    const nx = -Math.sin(l.to.theta) * side;
+                    const ny = -Math.cos(l.to.theta) * side;
+                    return (
+                      <Halo x={X(l.to.x) + nx * 12} y={Y(l.to.y) + ny * 12 + 4} className="plan-sampling-num" fill={col}>
+                        {`${i + 1}`}
+                      </Halo>
+                    );
+                  })()}
                 </g>
               );
             })}
@@ -248,8 +312,17 @@ export function steerFigure(start: Pose, legs: readonly SteerLeg[]): ComponentTy
           <Button size="sm" onClick={() => setShow((x) => !x)} aria-pressed={show}>
             {show ? 'Hide the arcs' : 'Show the arcs (spoiler: the worked path)'}
           </Button>
-          {show && <span className="muted small">Thin lines run from each arc’s centre (+) to its ends: their length is |r| = |v/ω|.</span>}
+          {show && centresShown && <span className="muted small">Thin lines run from each arc’s centre (+) to its ends: their length is |r| = |v/ω|.</span>}
         </div>
+        {show && (
+          <ul className="plan-sampling-steerlist">
+            {legs.map((l, i) => (
+              <li key={i}>
+                <span className="plan-sampling-key" style={{ background: LEG_COLOURS[i % LEG_COLOURS.length] }} /> after command {i + 1}: ({l.to.x.toFixed(4)}, {l.to.y.toFixed(4)}) m, θ = {Number(l.to.theta.toFixed(4))} rad
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     );
   }

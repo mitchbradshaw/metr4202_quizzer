@@ -12,7 +12,7 @@ import { svgPoint } from '../../../ui/diagrams';
 import { freshSeed, makeRng } from '../../../engine/rng';
 import { dist, type Vec2 } from '../../../core/geom2d';
 import { analyse, edgeLen, examScene, f1, labelAll, nextLabel, pathIds, randomScene, r1, type HandNode } from './rrtHandModel';
-import { Halo, SubLabel, edgeLabelPos } from './rrtFigures';
+import { Halo, SubLabel, edgeLabelPos, gapLabelSpots, treeNeighbours } from './rrtFigures';
 import '../sampling.css';
 
 export const meta: Omit<ExploreItem, 'component'> = {
@@ -54,8 +54,71 @@ function V({ l }: { l: string }) {
   );
 }
 
+/** Where the RRT label goes: beside the nearest → x_new line, on the side away from the root (the tree's other edges). */
+function rrtLabelAt(a: Vec2, b: Vec2, root: Vec2): { x: number; y: number } {
+  const q = edgeLabelPos(a, b, root, 13);
+  return { x: q.x, y: q.y + 4 };
+}
+
 const PAD = 22;
 const VW = 600;
+
+// ------------------------------------------------------------------ label placement (no label on a line, a vertex or another label)
+
+type Box = { x0: number; y0: number; x1: number; y1: number };
+type Anchor = 'start' | 'middle' | 'end';
+/** Approximate box of a 12 px label whose baseline is at y. */
+function textBox(x: number, y: number, text: string, anchor: Anchor = 'middle'): Box {
+  const w = text.length * 6.7 + 4;
+  const x0 = anchor === 'start' ? x - 2 : anchor === 'end' ? x - w + 2 : x - w / 2;
+  return { x0, x1: x0 + w, y0: y - 12, y1: y + 4 };
+}
+const around = (p: Vec2, r: number): Box => ({ x0: p.x - r, x1: p.x + r, y0: p.y - r, y1: p.y + r });
+const overlapArea = (a: Box, b: Box) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
+function segBoxDist(a: Vec2, b: Vec2, r: Box): number {
+  const n = Math.max(2, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 3));
+  let m = Infinity;
+  for (let k = 0; k <= n; k++) {
+    const x = a.x + ((b.x - a.x) * k) / n;
+    const y = a.y + ((b.y - a.y) * k) / n;
+    m = Math.min(m, Math.hypot(Math.max(r.x0 - x, 0, x - r.x1), Math.max(r.y0 - y, 0, y - r.y1)));
+  }
+  return m;
+}
+/** Points at fractions `ts` along a → b, pushed `off` px to either side of the line. */
+function besideLine(a: Vec2, b: Vec2, ts: readonly number[], off: number): Vec2[] {
+  const L = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+  const nx = -(b.y - a.y) / L;
+  const ny = (b.x - a.x) / L;
+  const out: Vec2[] = [];
+  for (const t of ts) {
+    const m = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+    out.push({ x: m.x + nx * off, y: m.y + ny * off }, { x: m.x - nx * off, y: m.y - ny * off });
+  }
+  return out;
+}
+const sameSeg = (u: readonly [Vec2, Vec2], a: Vec2, b: Vec2) =>
+  (Math.hypot(u[0].x - a.x, u[0].y - a.y) < 0.5 && Math.hypot(u[1].x - b.x, u[1].y - b.y) < 0.5) || (Math.hypot(u[0].x - b.x, u[0].y - b.y) < 0.5 && Math.hypot(u[1].x - a.x, u[1].y - a.y) < 0.5);
+
+/** The candidate spot whose box crosses the fewest lines and overlaps the least of what is already placed. */
+function bestSpot<T extends { box: Box }>(cands: readonly T[], segs: readonly (readonly [Vec2, Vec2])[], taken: readonly Box[], frame?: Box): T {
+  let best = cands[0];
+  let bestScore = Infinity;
+  for (const c of cands) {
+    let score = 0;
+    if (frame) score += 400 * (Math.max(0, frame.x0 - c.box.x0) + Math.max(0, c.box.x1 - frame.x1) + Math.max(0, frame.y0 - c.box.y0) + Math.max(0, c.box.y1 - frame.y1));
+    for (const [a, b] of segs) {
+      const d = segBoxDist(a, b, c.box);
+      if (d < 3) score += 60 + (3 - d) * 10;
+    }
+    for (const t of taken) score += overlapArea(c.box, t) * 2;
+    if (score < bestScore - 1e-9) {
+      bestScore = score;
+      best = c;
+    }
+  }
+  return best;
+}
 
 export default function RrtStarHand() {
   const [model, setModel] = useState<Model>(examModel);
@@ -163,6 +226,22 @@ export default function RrtStarHand() {
   const nearest = res.nearest;
   const parent = res.parent;
   const keyBase = `${model.kind}-${nodes.length}`;
+  // Everything drawn so far that a label must not cover: lines, vertices, x_new's handle and placed labels.
+  const segs: [Vec2, Vec2][] = [];
+  for (const n of nodes) if (n.parent >= 0) segs.push([P(n.p), P(nodes[n.parent].p)]);
+  for (const id of nbIds) segs.push([P(nodes[id].p), px]);
+  const taken: Box[] = nodes.map((n) => around(P(n.p), 7));
+  taken.push(around(px, 13));
+  const badgeBox = new Map<number, Box>();
+  const frame: Box = { x0: 2, y0: 2, x1: VW - 2, y1: view.H - 2 };
+  // x_new's name first: in the widest gap between its lines to the neighbours.
+  const xnewLabel = bestSpot(
+    gapLabelSpots(px, [...nbIds].map((id) => P(nodes[id].p)), 21).map((q) => ({ ...q, box: textBox(q.x, q.y, 'x_new', q.anchor) })),
+    segs,
+    taken,
+    frame
+  );
+  taken.push(xnewLabel.box);
 
   const edgeEls: ReactNode[] = [];
   for (const n of nodes) {
@@ -179,7 +258,8 @@ export default function RrtStarHand() {
       />
     );
     if (removed) {
-      const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      // Nearer the old parent than the midpoint, so it covers neither the printed length nor the cost badge.
+      const m = { x: a.x + (b.x - a.x) * 0.68, y: a.y + (b.y - a.y) * 0.68 };
       edgeEls.push(
         <g key={`x${n.id}`} className="plan-sampling-pop">
           <circle cx={m.x} cy={m.y} r={8} className="plan-sampling-xmark-bg" />
@@ -189,9 +269,11 @@ export default function RrtStarHand() {
     }
   }
   const lenEls = [...printed].map((k) => {
+    if (showRewire && rewiredIds.has(k)) return null; // crossed out: its length no longer matters
     const a = P(nodes[k].p);
     const b = P(nodes[nodes[k].parent].p);
     const q = edgeLabelPos(a, b, px, 11);
+    taken.push(textBox(q.x, q.y + 4, f1(edgeLen(nodes, k))));
     return (
       <Halo key={`l${k}`} x={q.x} y={q.y + 4} className="plan-sampling-num plan-sampling-edgenum">
         {f1(edgeLen(nodes, k))}
@@ -201,6 +283,8 @@ export default function RrtStarHand() {
 
   // Lines from the neighbours to x_new (phase-dependent).
   const candEls: ReactNode[] = [];
+  /** c + d labels, drawn after the x_new handle so it never hides them. */
+  const candLabelEls: ReactNode[] = [];
   for (const n of res.neighbours) {
     const a = P(nodes[n.id].p);
     const isNearest = n.id === nearest;
@@ -210,11 +294,22 @@ export default function RrtStarHand() {
     const faded = phase >= 4;
     candEls.push(<path key={`c${n.id}`} d={`M${a.x} ${a.y}L${px.x} ${px.y}`} className={faded ? 'plan-sampling-cand plan-sampling-faded' : 'plan-sampling-cand'} />);
     if (phase <= 3) {
-      const t = phase === 3 ? 0.55 : 0.5;
-      const m = { x: a.x + (px.x - a.x) * t, y: a.y + (px.y - a.y) * t };
-      candEls.push(
-        <Halo key={`ct${n.id}`} x={m.x} y={m.y + 4} className={phase === 3 ? 'plan-sampling-num' : 'plan-sampling-num plan-sampling-muted'}>
-          {phase === 3 ? `${f1(n.c)}+${f1(n.d)}=${f1(n.total)}` : `d ${f1(n.d)}`}
+      // On its own line (the halo keeps it readable), at the point along it that covers the least.
+      const text = phase === 3 ? `${f1(n.c)}+${f1(n.d)}=${f1(n.total)}` : `d ${f1(n.d)}`;
+      const ts = phase === 3 ? [0.42, 0.52, 0.32, 0.62] : [0.5, 0.4, 0.6, 0.3];
+      const onLine = ts.map((t) => ({ x: a.x + (px.x - a.x) * t, y: a.y + (px.y - a.y) * t + 4 }));
+      // A short line cannot hold a long label: then beside it.
+      const beside = besideLine(a, px, [0.5, 0.35, 0.65], 13).map((q) => ({ x: q.x, y: q.y + 4 }));
+      const pick = bestSpot(
+        [...onLine, ...beside].map((m) => ({ ...m, box: textBox(m.x, m.y, text) })),
+        segs.filter((u) => !sameSeg(u, a, px)),
+        taken,
+        frame
+      );
+      taken.push(pick.box);
+      candLabelEls.push(
+        <Halo key={`ct${n.id}`} x={pick.x} y={pick.y} className={phase === 3 ? 'plan-sampling-num' : 'plan-sampling-num plan-sampling-muted'}>
+          {text}
         </Halo>
       );
     }
@@ -225,20 +320,42 @@ export default function RrtStarHand() {
     phase >= 1 && nr ? (
       <g key={`rrt-${keyBase}`}>
         <path d={`M${X(nodes[nr.id].p)} ${Y(nodes[nr.id].p)}L${px.x} ${px.y}`} className={phase >= 4 ? 'plan-sampling-rrt plan-sampling-faded' : 'plan-sampling-rrt'} />
-        {phase < 4 && (
-          <Halo x={(X(nodes[nr.id].p) + px.x) / 2} y={(Y(nodes[nr.id].p) + px.y) / 2 - 7} className="plan-sampling-num plan-sampling-rrtlabel">
-            {phase === 3 ? `RRT · ${f1(nr.c)}+${f1(nr.d)}=${f1(nr.total)}` : `RRT: nearest, d ${f1(nr.d)}`}
-          </Halo>
-        )}
       </g>
     ) : null;
+  let rrtLabelEl: ReactNode = null;
+  if (phase >= 1 && phase < 4 && nr) {
+    const text = phase === 3 ? `RRT · ${f1(nr.c)}+${f1(nr.d)}=${f1(nr.total)}` : `RRT: nearest, d ${f1(nr.d)}`;
+    const a = P(nodes[nr.id].p);
+    const first = rrtLabelAt(a, px, P(nodes[0].p));
+    // Beside its line, or (when the line is short) further out beyond the nearest vertex.
+    const away = { x: a.x + (a.x - px.x), y: a.y + (a.y - px.y) };
+    const cands = [first, ...besideLine(a, px, [0.5, 0.3, 0.7], 13), ...besideLine(a, px, [0.5], 26), ...besideLine(a, away, [0.4, 0.8], 14), { x: away.x, y: away.y }].map((q, k) => (k === 0 ? q : { x: q.x, y: q.y + 4 }));
+    const pick = bestSpot(
+      cands.map((q) => ({ ...q, box: textBox(q.x, q.y, text) })),
+      segs,
+      taken,
+      frame
+    );
+    taken.push(pick.box);
+    rrtLabelEl = (
+      <Halo key={`rrtl-${keyBase}`} x={pick.x} y={pick.y} className="plan-sampling-num plan-sampling-rrtlabel">
+        {text}
+      </Halo>
+    );
+  }
   const parentEl =
     phase >= 4 && pr ? (
       <g key={`par-${keyBase}-${parent}`}>
         <path d={`M${X(nodes[pr.id].p)} ${Y(nodes[pr.id].p)}L${px.x} ${px.y}`} pathLength={1} className="plan-sampling-chosen plan-sampling-grow" />
-        <Halo x={(X(nodes[pr.id].p) + px.x) / 2} y={(Y(nodes[pr.id].p) + px.y) / 2 - 8} className="plan-sampling-num plan-sampling-chosenlabel">
-          {`${f1(pr.d)}`}
-        </Halo>
+        {(() => {
+          const q = edgeLabelPos(P(nodes[pr.id].p), px, labelAt(pr.id), 10);
+          taken.push(textBox(q.x, q.y + 4, f1(pr.d)));
+          return (
+            <Halo x={q.x} y={q.y + 4} className="plan-sampling-num plan-sampling-chosenlabel">
+              {`${f1(pr.d)}`}
+            </Halo>
+          );
+        })()}
       </g>
     ) : null;
   const rewireEls: ReactNode[] = showRewire
@@ -246,6 +363,7 @@ export default function RrtStarHand() {
         const a = P(nodes[w.id].p);
         if (!w.rewire) return null;
         const q = edgeLabelPos(px, a, { x: (px.x + a.x) / 2 + 40, y: (px.y + a.y) / 2 + 40 }, 10);
+        taken.push(textBox(q.x, q.y + 4, f1(row(w.id)!.d)));
         return (
           <g key={`rw-${keyBase}-${w.id}`}>
             <path d={`M${px.x} ${px.y}L${a.x} ${a.y}`} pathLength={1} className="plan-sampling-rewired plan-sampling-grow plan-sampling-flash" />
@@ -264,7 +382,6 @@ export default function RrtStarHand() {
       const a = P(nodes[n.id].p);
       const w = res.rewires.find((r) => r.id === n.id);
       const below = nodes[n.id].p.y < xnew.y - 0.3;
-      const y = below ? a.y + 21 : a.y - 12;
       let text = `c ${f1(n.c)}`;
       let cls = 'plan-sampling-num plan-sampling-cost';
       if (phase >= 5 && w) {
@@ -272,8 +389,9 @@ export default function RrtStarHand() {
         cls = w.rewire ? 'plan-sampling-num plan-sampling-rwyes' : 'plan-sampling-num plan-sampling-muted';
       }
       if (phase >= 6 && w?.rewire) text = `c ${f1(w.current)} → ${f1(w.via)}`;
+      const spot = placeBadge(n.id, a, text, below);
       badgeEls.push(
-        <Halo key={`b${n.id}-${phase >= 5 ? 'r' : 'c'}`} x={a.x + 10} y={y} anchor="start" className={cls}>
+        <Halo key={`b${n.id}-${phase >= 5 ? 'r' : 'c'}`} x={spot.x} y={spot.y} anchor={spot.anchor} className={cls}>
           {text}
         </Halo>
       );
@@ -283,12 +401,47 @@ export default function RrtStarHand() {
     for (const d of res.descendants) {
       if (nbIds.has(d.id)) continue;
       const a = P(nodes[d.id].p);
+      const text = `c ${f1(d.old)} → ${f1(d.now)}`;
+      const spot = placeBadge(d.id, a, text, false);
       badgeEls.push(
-        <Halo key={`d${d.id}`} x={a.x + 10} y={a.y - 12} anchor="start" className="plan-sampling-num plan-sampling-rwyes plan-sampling-pop">
-          {`c ${f1(d.old)} → ${f1(d.now)}`}
+        <Halo key={`d${d.id}`} x={spot.x} y={spot.y} anchor={spot.anchor} className="plan-sampling-num plan-sampling-rwyes plan-sampling-pop">
+          {text}
         </Halo>
       );
     }
+  }
+
+  /** A vertex name goes in the widest gap between its tree edges, its line to x_new and its cost badge. */
+  function labelAt(id: number) {
+    const a = P(nodes[id].p);
+    const towards = treeNeighbours(nodes, id, P);
+    const blocked: number[] = [];
+    if (nbIds.has(id)) towards.push(px);
+    const bb = badgeBox.get(id);
+    if (bb) for (const [cx, cy] of [[bb.x0, bb.y0], [bb.x1, bb.y0], [bb.x0, bb.y1], [bb.x1, bb.y1]]) blocked.push(Math.atan2(cy - a.y, cx - a.x));
+    const spots = gapLabelSpots(a, towards, id === 0 ? 17 : 16, blocked).map((q) => ({ ...q, box: textBox(q.x, q.y, 'x0', q.anchor) }));
+    const q = bestSpot(spots, segs, taken, frame);
+    return { x: q.x, y: q.y, anchor: q.anchor };
+  }
+
+  /** A cost badge beside a vertex: upper or lower, right or left, wherever it covers the least. */
+  function placeBadge(id: number, a: Vec2, text: string, preferBelow: boolean): { x: number; y: number; anchor: Anchor } {
+    const spots: { x: number; y: number; anchor: Anchor }[] = [
+      { x: a.x + 10, y: a.y - 12, anchor: 'start' },
+      { x: a.x + 10, y: a.y + 21, anchor: 'start' },
+      { x: a.x - 10, y: a.y - 12, anchor: 'end' },
+      { x: a.x - 10, y: a.y + 21, anchor: 'end' },
+    ];
+    if (preferBelow) spots.unshift(spots.splice(1, 1)[0]);
+    const pick = bestSpot(
+      spots.map((sp) => ({ ...sp, box: textBox(sp.x, sp.y, text, sp.anchor) })),
+      segs,
+      taken,
+      frame
+    );
+    taken.push(pick.box);
+    badgeBox.set(id, pick.box);
+    return { x: pick.x, y: pick.y, anchor: pick.anchor };
   }
 
   // ---------------------------------------------------------------- narration
@@ -503,7 +656,7 @@ export default function RrtStarHand() {
                   <g key={`n${n.id}`}>
                     {inside && <circle cx={a.x} cy={a.y} r={9} className="plan-sampling-nbring" />}
                     <circle cx={a.x} cy={a.y} r={n.id === 0 ? 6.5 : 5} className={n.id === 0 ? 'plan-sampling-root' : 'plan-sampling-node'} />
-                    {labelled(n.id) && <SubLabel x={a.x - 13} y={a.y - 8} sub={n.label} anchor="end" />}
+                    {labelled(n.id) && <SubLabel {...labelAt(n.id)} sub={n.label} />}
                   </g>
                 );
               })}
@@ -523,8 +676,10 @@ export default function RrtStarHand() {
                 <circle cx={px.x} cy={px.y} r={24} fill="transparent" />
                 <circle cx={px.x} cy={px.y} r={11} className="plan-sampling-handle" />
                 <circle cx={px.x} cy={px.y} r={6} className="plan-sampling-xnew" />
-                <SubLabel x={px.x + 14} y={px.y + 22} sub="new" anchor="start" className="plan-sampling-svglabel plan-sampling-xnewlabel" />
+                <SubLabel x={xnewLabel.x} y={xnewLabel.y} sub="new" anchor={xnewLabel.anchor} className="plan-sampling-svglabel plan-sampling-xnewlabel" />
               </g>
+              {candLabelEls}
+              {rrtLabelEl}
             </svg>
             <StepControls st={st} label="step" speeds={[0.5, 1, 2]} />
             <Segmented size="sm" label="Jump to a step" value={phase} onChange={(v) => st.setI(v)} options={PHASES.map((p, i) => ({ value: i, label: `${i} ${p}` }))} />
@@ -561,9 +716,13 @@ export default function RrtStarHand() {
               </p>
             )}
             <Slider label="neighbourhood radius" tex="r" tip="RRT* only considers vertices within r of x_new" value={radius} min={1} max={6} step={0.1} onChange={(v) => setModel((m) => ({ ...m, radius: r1(v) }))} />
-            <h4>Choose parent (“to” x_new)</h4>
+            <h4>
+              Choose parent (“to” <span style={{ textTransform: 'none' }}><V l="new" /></span>)
+            </h4>
             {res.neighbours.length ? parentTable : <Callout kind="warn">No vertex inside the radius.</Callout>}
-            <h4>Rewire (“from” x_new)</h4>
+            <h4>
+              Rewire (“from” <span style={{ textTransform: 'none' }}><V l="new" /></span>)
+            </h4>
             {rewireTable}
             <div className="readouts plan-sampling-vs" aria-label="Basic RRT against RRT*">
               <div className="readout tone-m1">

@@ -134,7 +134,9 @@ function degMode(p: Pose, c: SteerCmd): Pose {
 // ------------------------------------------------------------------ generator
 
 const POS = { unit: 'm', tol: 0.002, absTol: 0.006 } as const;
-const ANG = { unit: 'rad', tol: 0.002, absTol: 0.004 } as const;
+// Headings are sums of multiples of 0.05 rad, so they can need three decimals (0.625): accept the 2-d.p.
+// rounding a student writes (0.63), as for positions; every heading trap is at least 0.05 rad away.
+const ANG = { unit: 'rad', tol: 0.002, absTol: 0.006 } as const;
 
 function shapePart(): ChoicePart {
   return {
@@ -345,7 +347,7 @@ export const generators: SolveGenerator[] = [
             tol: 0.002,
             absTol: 0.004,
             traps: keep(s.r, [
-              { value: -s.r, message: `Keep the sign: $\\omega_${j}$ ${c.w < 0 ? '< 0' : '> 0'}, so $r_${j}$ ${c.w < 0 ? '< 0 (a clockwise arc)' : '> 0 (anticlockwise)'}.`, trapId: 'vel-radius-sign' },
+              { value: -s.r, message: `Keep the sign: $\\omega_${j}$ ${c.w < 0 ? '< 0' : '> 0'}, so $r_${j}$ ${c.w < 0 ? '< 0 (a clockwise arc)' : '> 0 (anticlockwise)'}.`, trapId: 'radius-sign' },
               { value: c.w / c.v, message: 'Upside down: $r = v/\\omega$ (speed over turn rate).' },
             ]),
             marks: 0.5,
@@ -357,7 +359,7 @@ export const generators: SolveGenerator[] = [
             answer: s.wdt,
             unit: 'rad',
             tol: 0.002,
-            absTol: 0.002,
+            absTol: 0.006,
             traps: keep(s.wdt, [
               { value: s.wdt * DEG, message: 'That is in degrees. Keep angles in radians.', trapId: 'radians' },
               ...(c.dt !== 1 ? [{ value: c.w, message: `Multiply by $\\Delta t$ = ${g(c.dt)} s: the heading turns at $\\omega$ for the whole command.` }] : []),
@@ -381,8 +383,8 @@ export const generators: SolveGenerator[] = [
           ...POS,
           traps: keep(s.to.x, [
             { value: deg.x, message: degMsg, trapId: 'radians' },
-            ...(noCarry ? [{ value: noCarry.x, message: carryMsg, trapId: 'vel-carry-theta' }] : []),
-            ...(absR ? [{ value: absR.x, message: `Keep the sign of $r_${j}$ = ${g(s.r)}: with $\\omega < 0$ the arc bends clockwise.`, trapId: 'vel-radius-sign' }] : []),
+            ...(noCarry ? [{ value: noCarry.x, message: carryMsg, trapId: 'carry-theta' }] : []),
+            ...(absR ? [{ value: absR.x, message: `Keep the sign of $r_${j}$ = ${g(s.r)}: with $\\omega < 0$ the arc bends clockwise.`, trapId: 'radius-sign' }] : []),
             { value: swapX, message: s.straight ? 'Use $\\cos\\theta$ for the x step and $\\sin\\theta$ for y.' : 'Sign slip: $x\' = x - r\\sin\\theta + r\\sin(\\theta + \\omega\\Delta t)$.' },
           ]),
           marks: 1,
@@ -395,8 +397,8 @@ export const generators: SolveGenerator[] = [
           ...POS,
           traps: keep(s.to.y, [
             { value: deg.y, message: degMsg, trapId: 'radians' },
-            ...(noCarry ? [{ value: noCarry.y, message: carryMsg, trapId: 'vel-carry-theta' }] : []),
-            ...(absR ? [{ value: absR.y, message: `Keep the sign of $r_${j}$ = ${g(s.r)}: with $\\omega < 0$ the arc bends clockwise.`, trapId: 'vel-radius-sign' }] : []),
+            ...(noCarry ? [{ value: noCarry.y, message: carryMsg, trapId: 'carry-theta' }] : []),
+            ...(absR ? [{ value: absR.y, message: `Keep the sign of $r_${j}$ = ${g(s.r)}: with $\\omega < 0$ the arc bends clockwise.`, trapId: 'radius-sign' }] : []),
             { value: swapY, message: s.straight ? 'Use $\\sin\\theta$ for the y step and $\\cos\\theta$ for x.' : 'Sign slip: $y\' = y + r\\cos\\theta - r\\cos(\\theta + \\omega\\Delta t)$.' },
           ]),
           marks: 1,
@@ -408,7 +410,7 @@ export const generators: SolveGenerator[] = [
           answer: s.to.theta,
           ...ANG,
           traps: keep(s.to.theta, [
-            ...(Math.abs(prev.theta) > 1e-9 ? [{ value: s.wdt, message: `$\\theta' = \\theta + \\omega\\Delta t$: add the previous heading ${g(prev.theta)} rad.`, trapId: 'vel-carry-theta' }] : []),
+            ...(Math.abs(prev.theta) > 1e-9 ? [{ value: s.wdt, message: `$\\theta' = \\theta + \\omega\\Delta t$: add the previous heading ${g(prev.theta)} rad.`, trapId: 'carry-theta' }] : []),
             { value: s.to.theta * DEG, message: 'That is in degrees. Keep the heading in radians.', trapId: 'radians' },
           ]),
           marks: 0.5,

@@ -5,6 +5,14 @@
 import type { ChoicePart, NumericPart, SolveGenerator, SolvePart, Tier } from '../../../engine/types';
 import { analyse, costSum, f1, randomScene, vx, type HandNode, type HandResult, type SceneSpec } from '../explore/rrtHandModel';
 import { rrtTreeFigure } from '../explore/rrtFigures';
+import { registerTraps } from '../../../engine/traps';
+
+// The by-hand RRT* mistakes that have no core trap (the trap log shows them with this title and detail).
+registerTraps([
+  { id: 'rrt-cost-to-come', title: 'c(x) is the whole path back to the root', detail: 'The cost-to-come of a vertex adds **every** edge from $x_0$ to it, not just its last edge.' },
+  { id: 'rrt-rewire-direction', title: 'Rewire starts from c(x_new)', detail: 'Rewire $x_{near}$ if $c(x_{new}) + d(x_{new}, x_{near}) < c(x_{near})$. Re-using the choose-parent total $c(x_{near}) + d$ tests the wrong direction.' },
+  { id: 'rrt-descendants', title: 'A rewired vertex takes its subtree with it', detail: 'Every vertex below a rewired one saves the same amount: its path to the root now runs through $x_{new}$.' },
+]);
 
 const SPEC: Record<Tier, SceneSpec> = {
   1: { neighbours: [3, 3], rewires: [0, 2], descendant: false, size: [8, 11] },
@@ -129,7 +137,7 @@ export const generators: SolveGenerator[] = [
         unit: '',
         ...TIGHT,
         traps: traps(res.cNew, [
-          { value: res.rrtCost, message: `That is the cost through the nearest vertex ${X(nearest)} (basic RRT’s connection), not the RRT* parent.`, trapId: 'rrt-nearest-not-cheapest' },
+          { value: res.rrtCost, message: `That is the cost through the nearest vertex ${X(nearest)} (basic RRT’s connection), not the RRT* parent.`, trapId: 'rrt-nearest' },
           { value: pr.d, message: `That is only the last edge $d(${vx(L(parent))}, x_{new})$. Add the parent’s own cost-to-come $c(${vx(L(parent))})$ = ${f1(pr.c)}.` },
           { value: pr.c, message: `That is $c(${vx(L(parent))})$ alone. Add the new edge $d(${vx(L(parent))}, x_{new})$ = ${f1(pr.d)}.` },
         ]),

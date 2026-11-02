@@ -102,7 +102,7 @@ export const TOOL_OPTIONS: { value: Tool; label: string; title: string }[] = [
   { value: 'wall', label: '▦ Wall', title: 'Paint walls (start on a wall to erase walls instead)' },
   { value: 'mud', label: '≋ Mud ×5', title: 'Paint mud: entering a mud cell costs 5 × the step' },
   { value: 'erase', label: '⌫ Erase', title: 'Erase walls and mud' },
-  { value: 'inspect', label: '🔍 Inspect', title: 'Tap a cell to read its numbers' },
+  { value: 'inspect', label: '🔍 Inspect', title: 'Click a cell to read its numbers' },
 ];
 
 // ------------------------------------------------------------------ the grid view
@@ -456,6 +456,13 @@ export function CellChip({ grid, k }: { grid: Grid; k: number }) {
 /** Scroll the grid into view when the layout is stacked (tablet portrait), so "Show me" is visible. */
 export function revealGrid(el: HTMLElement | null) {
   if (!el || typeof window === 'undefined') return;
-  const r = el.getBoundingClientRect();
-  if (r.top < 0 || r.bottom > window.innerHeight) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Scroll as little as possible so the map column sits below the app's sticky top bar and topic tabs
+  // (98 px) and the map itself is on screen. Works whether or not the column is currently stuck.
+  const HEADER = 106;
+  const col = el.getBoundingClientRect();
+  const map = (el.querySelector('.plan-grid-svg') ?? el).getBoundingClientRect();
+  let dy = 0;
+  if (col.top < HEADER - 4) dy = col.top - HEADER;
+  else if (map.bottom > window.innerHeight) dy = Math.min(map.bottom - window.innerHeight + 12, col.top - HEADER);
+  if (Math.abs(dy) > 2) window.scrollBy({ top: dy, behavior: 'smooth' });
 }

@@ -337,8 +337,8 @@
   fill: var(--bad-soft);
 }
 .plan-cspace-ansbox .num {
-  font: 600 9.5px var(--font);
-  fill: var(--text-3);
+  font: 700 9.5px var(--font);
+  fill: var(--text-2);
 }
 .plan-cspace-ansbox .ans {
   font: 700 15px var(--font);
@@ -376,4 +376,92 @@
 }
 .plan-cspace-verdict li + li {
   margin-top: 3px;
+}
+
+/* solve: figure interaction and per-box answer parts (solve/cspaceLabel.tsx) */
+.plan-cspace-solvefig {
+  margin: 0;
+}
+.plan-cspace-solvefig figure {
+  margin: 0;
+  min-width: 0;
+  border-radius: var(--radius);
+}
+.plan-cspace-solvefig figure.is-focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.plan-cspace-ansbox {
+  cursor: pointer;
+}
+.plan-cspace-ansbox:focus {
+  outline: none;
+}
+.plan-cspace-ansbox.is-focus rect,
+.plan-cspace-ansbox:focus-visible rect,
+.plan-cspace-ansbox.is-shown rect {
+  stroke: var(--accent);
+  stroke-width: 2.8;
+}
+.plan-cspace-ansbox.is-focus .plan-cspace-leader,
+.plan-cspace-ansbox.is-shown .plan-cspace-leader {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.plan-cspace-tipdot {
+  fill: var(--text);
+}
+.plan-cspace-posedot {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 1.6;
+  pointer-events: none;
+}
+.plan-cspace-figfoot {
+  margin: 6px 4px 0;
+  color: var(--text-2);
+  min-height: 2.8em;
+  max-width: 880px;
+}
+.plan-cspace-boxpart {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  max-width: 880px;
+}
+.plan-cspace-letter {
+  min-width: 46px;
+  min-height: 36px;
+  font-weight: 600;
+}
+.plan-cspace-letter:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.plan-cspace-letter.is-key {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.plan-cspace-letter.is-wrong {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+.plan-cspace-verdict {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+.plan-cspace-verdict.is-ok {
+  border-color: color-mix(in srgb, var(--ok) 40%, var(--border));
+}
+.plan-cspace-verdict.is-bad {
+  border-color: color-mix(in srgb, var(--bad) 40%, var(--border));
+}
+.plan-cspace-matchtag {
+  font-size: 0.82rem;
 }

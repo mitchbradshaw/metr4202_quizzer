@@ -697,7 +697,7 @@ export default function GridSearch() {
         />
         <Rich
           className="note"
-          text="Tap a row to replay that search. **Optimal** compares the path cost with Dijkstra’s. With every step costing 1, BFS pops in exactly Dijkstra’s order (2023 Q9), and A* with $h = 0$ always matches Dijkstra (2024 Q9)."
+          text="Click a row to replay that search. **Optimal** compares the path cost with Dijkstra’s. With every step costing 1, BFS pops in exactly Dijkstra’s order (2023 Q9), and A* with $h = 0$ always matches Dijkstra (2024 Q9)."
         />
       </section>
 
@@ -735,7 +735,7 @@ export default function GridSearch() {
           question="G is three cells to the right of S on an empty map. About how many cells does DFS pop before it pops G?"
           options={['3 to 5', 'About 15', 'More than 100']}
           answer={2}
-          explain={`DFS always pops the newest cell, so it runs off in the direction of the last neighbour pushed (up, here) and only turns when it hits an edge. It pops ${F.dfsDfs.order.length} cells and returns a ${pathSteps(F.dfsDfs.path)}-step path for a 3-step trip. BFS pops ${F.dfsBfs.order.length}, A* ${F.dfsAstar.order.length}. DFS is neither optimal nor complete-in-good-time; its textbook advantage is memory (in tree search it keeps only the current branch), which buys nothing on a small grid: compare the peak Open column.`}
+          explain={`DFS always pops the newest cell, so it runs off in the direction of the last neighbour pushed (up, here) and only turns when it hits an edge. It pops ${F.dfsDfs.order.length} cells and returns a ${pathSteps(F.dfsDfs.path)}-step path for a 3-step trip. BFS pops ${F.dfsBfs.order.length}, A* ${F.dfsAstar.order.length}. DFS does reach G on a finite grid (it never pops a cell twice), but it is not optimal and can wander over most of the map first. Its textbook advantage is memory (in tree search it keeps only the current branch), which buys nothing on a small grid: compare the peak Open column.`}
           tryIt="load “DFS wanders” and run DFS. Switch on the parent arrows to see the snake."
           onApply={() => setup({ preset: 'dfs', diag: false, algo: 'dfs', speed: 120 })}
         />

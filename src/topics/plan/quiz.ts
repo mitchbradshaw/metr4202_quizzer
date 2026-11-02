@@ -611,7 +611,7 @@ export const mcqs: MCQ[] = [
       {
         text: 'velocities $(v, \\omega)$ it can reach within one control period and still stop safely',
         correct: true,
-        why: 'The acceleration limits set the window; arcs that could not stop before an obstacle are dropped; the rest are simulated and scored on heading, clearance and speed.',
+        why: 'The acceleration limits set the window; arcs that could not stop before an obstacle are dropped; the rest are simulated and scored on heading, clearance and velocity.',
       },
       {
         text: 'every velocity within its motor limits, whatever it happens to be doing right now',

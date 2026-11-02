@@ -6,7 +6,9 @@
 //   - an "endpoint-only" collision mode: only the new node is checked, never the edge (the 2023 Q32c mistake);
 //   - a log of every birth and rewire, so any earlier iteration can be redrawn without re-running;
 //   - incremental child lists (core rebuilds a child map for every rewire) and collision-check counts;
-//   - the best path to the goal after every iteration (for the cost-vs-iterations plot).
+//   - the best path to the goal after every iteration (for the cost-vs-iterations plot);
+//   - no duplicate nodes: once a node sits exactly on the goal, core rrtStep adds a zero-length copy of it for
+//     every later goal sample; here such a sample adds nothing (same random draws, same tree otherwise).
 import { dist, type Shape, type Vec2 } from '../../../core/geom2d';
 import { pointFree, segmentFree, steer, type World } from '../../../core/sampling';
 import { mulberry32 } from '../../../engine/rng';
@@ -52,6 +54,8 @@ export interface StepLog {
   rewires: { id: number; via: number; current: number; done: boolean; oldParent: number }[];
   /** The new edge really crosses an obstacle (only possible with endpoint-only checking). */
   badEdge: boolean;
+  /** The steered point is the nearest node itself (the goal, sampled again once it is in the tree): nothing added. */
+  dup: boolean;
 }
 
 interface RewireRec {
@@ -254,9 +258,10 @@ export class GrowRun {
       cost: NaN,
       rewires: [],
       badEdge: false,
+      dup: dist(pn, steered) < 1e-9,
     };
     this.it++;
-    if (this.free(pn, steered)) {
+    if (!ev.dup && this.free(pn, steered)) {
       let parent = nearest;
       let cost = this.cost[nearest] + dist(pn, steered);
       let near: number[] = [];
@@ -399,7 +404,7 @@ export const WORLDS: Record<WorldKey, WorldPreset> = {
     },
     start: { x: 3.2, y: 5 },
     goal: { x: 9, y: 9 },
-    blurb: 'The start is inside a cup whose only exit is a narrow channel. Pulling hard towards the goal just drives the tree into the wall.',
+    blurb: 'The start is inside a cup whose only exit is a narrow channel. A goal-biased sample only pushes the tree into the wall facing the goal; the random samples are what find the way out.',
   },
 };
 

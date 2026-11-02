@@ -1379,7 +1379,7 @@ export default function ArmCSpace() {
               className="plan-cspace-explain"
               text={
                 selInfo.band
-                  ? `**${sel.label}**: nearest point ${fmt(selInfo.dNear, 3)} m from the base, inside $L_1$ = ${fmt(l1, 3)} m, so link 1 reaches it: a **full-height band** over the directions it covers, $\\theta_1 \\approx$ ${piTeX(selInfo.dir[0])} to ${piTeX(selInfo.dir[1])} (marked under the axis), with link-2 bulges at the sides.`
+                  ? `**${sel.label}**: nearest point ${fmt(selInfo.dNear, 3)} m from the base, inside $L_1$ = ${fmt(l1, 3)} m, so link 1 reaches it: a **full-height band** wherever link 1 points into it. That is inside the directions it covers from the base, $\\theta_1 \\approx$ ${piTeX(selInfo.dir[0])} to ${piTeX(selInfo.dir[1])} (marked under the axis)${selInfo.dFar > l1 + 1e-9 ? ', and narrower when part of it lies beyond the circle' : ''}, with link-2 bulges at the sides.`
                   : selInfo.reachable
                     ? `**${sel.label}**: nearest point ${fmt(selInfo.dNear, 3)} m from the base, beyond $L_1$ = ${fmt(l1, 3)} m but within $L_1 + L_2$ = ${fmt(reach, 3)} m: only link 2 reaches it, so an **isolated blob** near $\\theta_2 \\approx 0 \\equiv 2\\pi$ at $\\theta_1 \\approx$ ${piTeX(selInfo.dir[0])} to ${piTeX(selInfo.dir[1])}, its directions from the base.`
                     : `**${sel.label}**: nearest point ${fmt(selInfo.dNear, 3)} m from the base, beyond $L_1 + L_2$ = ${fmt(reach, 3)} m: the arm cannot reach it, so it has **no C-space region** at all.`
@@ -1424,16 +1424,16 @@ const PredictBlock = memo(function PredictBlock({ api }: { api: MutableRefObject
       <PredictReveal
         id="plan-cspace-band"
         question="Square A crosses the dashed circle of radius $L_1$. In C-space, is its region a full-height band or an isolated blob?"
-        options={['A full-height band over the $\\theta_1$ values that point at A', 'An isolated blob near $\\theta_2 \\approx 0$', 'A horizontal band at one value of $\\theta_2$', 'No region: A is too close to the base']}
+        options={['A full-height band over the $\\theta_1$ values that point at A', 'An isolated blob near $\\theta_2 \\approx 0$, where the arm is stretched out towards A', 'A horizontal band: one value of $\\theta_2$ collides at every $\\theta_1$', 'No region at all: A sits too close to the base for the arm to hit it']}
         answer={0}
-        explain="Link 1 sweeps the whole disc of radius $L_1$. When $\theta_1$ points at A, link 1 is already inside A, so the arm collides **whatever $\theta_2$ is**: the whole column of C-space is blocked, a full-height band. Its width is the range of directions A covers from the base (about $0.67\pi$ to $0.83\pi$ here). The tinted bulges at its sides are link 2 hitting A when link 1 points just past it."
+        explain="Link 1 sweeps the whole disc of radius $L_1$. When $\theta_1$ points at the part of A inside that disc, link 1 is already inside A, so the arm collides **whatever $\theta_2$ is**: the whole column of C-space is blocked, a full-height band. Its width is the range of directions in which link 1 reaches A: about $0.70\pi$ to $0.80\pi$ here. (A as a whole spans $0.67\pi$ to $0.83\pi$ from the base, but its outer corners lie beyond $L_1$, so link 1 misses them.) The tinted bulges at the sides of the band are link 2 hitting A when link 1 points just past it."
         tryIt="press Show me: the arm sweeps θ₂ all the way round with link 1 pointing at A."
         onApply={() => api.current.band()}
       />
       <PredictReveal
         id="plan-cspace-above"
         question="Block B is directly above the base and beyond the dashed circle (out of reach of link 1). Near which $(\theta_1, \theta_2)$ is its C-space blob?"
-        options={['$\\theta_1 \\approx \\pi/2$, $\\theta_2 \\approx 0 \\equiv 2\\pi$ (pointing up, nearly straight)', '$\\theta_1 \\approx \\pi/2$, $\\theta_2 \\approx \\pi$', '$\\theta_1 \\approx 0$, $\\theta_2 \\approx \\pi/2$', 'A full-height band at $\\theta_1 \\approx \\pi/2$']}
+        options={['$\\theta_1 \\approx \\pi/2$, $\\theta_2 \\approx 0 \\equiv 2\\pi$ (pointing up, nearly straight)', '$\\theta_1 \\approx \\pi/2$, $\\theta_2 \\approx \\pi$ (pointing up, elbow folded back)', '$\\theta_1 \\approx 0$, $\\theta_2 \\approx \\pi/2$ (pointing right, then bent up to B)', 'A full-height band at $\\theta_1 \\approx \\pi/2$ (every $\\theta_2$ collides)']}
         answer={0}
         explain="Only link 2 can touch B, and only when the arm is nearly straight ($\theta_2 \approx 0$) and pointing at B ($\theta_1 \approx$ B's direction from the base, $\pi/2$). Bending the elbow pulls the tip back out of reach, so the blob is small and centred on $\theta_2 = 0$. Because $\theta_2 = 0$ and $2\pi$ are the same angle, the plot cuts it into two pieces, one on the bottom edge and one on the top."
         tryIt="press Show me: the dot climbs through the top edge at θ₁ = π/2 and comes back in at the bottom, the tip inside B all the way."
@@ -1442,7 +1442,7 @@ const PredictBlock = memo(function PredictBlock({ api }: { api: MutableRefObject
       <PredictReveal
         id="plan-cspace-shrink"
         question="In the 2024 workspace, C crosses the circle and makes a narrow band. Shrink $L_1$ from 2.83 m to 2.0 m so the circle no longer reaches C. What happens to C's region?"
-        options={['It becomes an isolated blob: only link 2 can reach C now', 'It stays a full-height band, just narrower', 'It disappears: the arm can no longer reach C', 'It moves to a different $\\theta_1$']}
+        options={['It becomes an isolated blob: only link 2 can reach C now', 'It stays a full-height band, only narrower, because C has not moved', 'It disappears: with a shorter link 1 the arm can no longer reach C', 'It moves to a different $\\theta_1$, since the elbow is now nearer the base']}
         answer={0}
         explain="C's nearest corner is 2.24 m from the base. With $L_1$ = 2 m link 1 stops short of it, so no column is blocked for every $\theta_2$: the band lets go of the top and bottom edges and only the link-2 part is left, a blob near $\theta_2 \approx 0$. It does not vanish, because $L_1 + L_2$ = 4 m still reaches C. A, whose near edge is only 1 m away, keeps its band."
         tryIt="press Show me and watch C's band (green) as L₁ shrinks."
@@ -1451,7 +1451,7 @@ const PredictBlock = memo(function PredictBlock({ api }: { api: MutableRefObject
       <PredictReveal
         id="plan-cspace-wrap-edges"
         question="A region runs off the top edge of the C-space plot ($\theta_2 = 2\pi$). Where does it continue?"
-        options={['At the bottom edge, at the same $\\theta_1$', 'At the left edge', 'Nowhere: it ends at the edge', 'At the top edge, half a turn away in $\\theta_1$']}
+        options={['At the bottom edge, at the same $\\theta_1$', 'At the left edge, because the plot wraps round sideways', 'Nowhere: the region simply ends at the edge of the plot', 'At the top edge again, half a turn away in $\\theta_1$']}
         answer={0}
         explain="$\theta_2 = 2\pi$ and $\theta_2 = 0$ are the same joint angle, so the top and bottom edges are glued together (and so are the left and right edges): the C-space of a two-revolute arm is a torus. A blob near $\theta_2 \approx 0$ shows as two pieces, one on each edge. That is why 2023 Q26 and 2025 Q25 have two boxes for the same obstacle."
         tryIt="press Show me: in the 2025 workspace the pose climbs through the top edge; the tip stays inside B."
@@ -1460,7 +1460,7 @@ const PredictBlock = memo(function PredictBlock({ api }: { api: MutableRefObject
       <PredictReveal
         id="plan-cspace-line"
         question="The tip can slide along the dashed straight line from P to Q without touching A. Can the arm make that motion without a collision?"
-        options={['Yes: the line is free, so the motion is too', 'No: on the way, link 1 has to point at A and hits it', 'Yes, with the other elbow (IK) solution']}
+        options={['Yes: the tip’s straight line is free, so the arm’s motion is free too', 'No: on the way, link 1 has to point at A and hits it', 'Yes, as long as the arm uses the other elbow (IK) solution']}
         answer={1}
         explain="The tip's path is not the arm's path: the links sweep an area. A crosses the circle, so it is a full-height band, and following the line takes $\theta_1$ from about $0.18\pi$ to $0.70\pi$, straight through the band, with either elbow solution. The only collision-free motion goes the other way round (through $\theta_1 = 0 \equiv 2\pi$), which is what the C-space planner finds (review deck slide 15)."
         tryIt="press Show me: the arm follows the line; red ghosts and the red stretch in C-space are collisions. Then press Plan in C-space."

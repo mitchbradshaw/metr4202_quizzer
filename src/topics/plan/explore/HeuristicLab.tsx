@@ -482,7 +482,7 @@ export default function HeuristicLab() {
         </div>
         <Rich
           className="note"
-          text="Tap a row to switch. Among admissible heuristics, the larger $h$ is (the closer to $h^*$), the fewer cells A* pops: $h = 0$ is Dijkstra and floods everywhere."
+          text="Click a row to switch. Among admissible heuristics, the larger $h$ is (the closer to $h^*$), the fewer cells A* pops: $h = 0$ is Dijkstra and floods everywhere."
         />
       </section>
 
@@ -503,7 +503,7 @@ If $h$ overestimates on the optimal route, $f(n) > C^*$ there, and G can be popp
           question="Allow diagonal moves (8-connected, a diagonal step costs $\sqrt2$). Is Manhattan distance still an admissible heuristic?"
           options={['Yes: it never overestimates', 'No: it overestimates wherever both $\\Delta x$ and $\\Delta y$ are non-zero', 'Only next to walls']}
           answer={1}
-          explain={`One diagonal step from G: Manhattan says $|1| + |1| = 2$, but the step costs $\\sqrt2 \\approx 1.41$ (2023 Q25). Every cell off G’s row and column gets a red ▲, worst on the diagonals (ratio $\\sqrt2$). On the block map A* with Manhattan returns ${fmtCost(F.blockMan.res.cost, 3)} instead of ${fmtCost(F.blockOpt, 3)}: it avoids the diagonal route because it prices it too high. Octile distance is the exact version for an 8-connected grid; Euclidean is admissible too.`}
+          explain={`One diagonal step from G: Manhattan says $|1| + |1| = 2$, but the step costs $\\sqrt2 \\approx 1.41$ (2023 Q25). Almost every cell off G’s row and column gets a red ▲ (all of them on the open field; a few cells tucked behind the block escape, because the detour raises their $h^*$), worst on the diagonals (ratio $\\sqrt2$). On the block map A* with Manhattan returns ${fmtCost(F.blockMan.res.cost, 3)} instead of ${fmtCost(F.blockOpt, 3)}: it avoids the diagonal route because it prices it too high. Octile distance is the exact version for an 8-connected grid; Euclidean is admissible too.`}
           tryIt="load the block map, choose 8-connected and Manhattan, and look for red ▲ cells and the dashed cheaper route."
           onApply={() => setup({ preset: 'block', diag: true, hk: 'manhattan', nums: 'off', inspect: null })}
         />
@@ -527,12 +527,12 @@ If $h$ overestimates on the optimal route, $f(n) > C^*$ there, and G can be popp
         />
         <PredictReveal
           id="plan-heur-zero"
-          question="Set $h = 0$. A* now pops exactly the same cells, in the same order, as…"
+          question="**Mud map** (entering a mud cell costs 5). Set $h = 0$. A* now pops exactly the same cells, in the same order, as…"
           options={['BFS', 'Dijkstra', 'Greedy best-first', 'DFS']}
           answer={1}
-          explain="With $h = 0$, $f = g$, which is Dijkstra’s priority, so the pops are identical (2024 Q9: Dijkstra and A* are the same if the heuristic is zero). It is still optimal ($0 \le h^*$ is admissible) but gets no guidance: it floods outwards in rings and pops the most cells of any admissible heuristic."
-          tryIt="choose h = 0 and watch the pops spread evenly from S."
-          onApply={() => setup({ hk: 'zero', nums: 'off' })}
+          explain="With $h = 0$, $f = g$, which is Dijkstra’s priority, so the pops are identical (2024 Q9: Dijkstra and A* are the same if the heuristic is zero). BFS would match too if every step cost the same, but the mud makes costs unequal and BFS ignores them. $h = 0$ is still admissible ($0 \le h^*$), so the path is optimal, but A* gets no guidance: it floods outwards in rings of equal cost (bending round the mud) and pops the most cells of any admissible heuristic."
+          tryIt="the mud map is loaded with h = 0: watch the pops spread out by cost from S, then compare the popped column of the table."
+          onApply={() => setup({ preset: 'mud', diag: false, hk: 'zero', nums: 'off', inspect: null })}
         />
       </section>
 

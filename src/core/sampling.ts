@@ -126,6 +126,9 @@ export function rrtStep(world: World, tree: Tree, next: () => number, o: RrtOpti
   // Shrinking neighbourhood r = min(r_max, γ·sqrt(log n / n)) (2D), with γ chosen so r = r_max for small trees.
   const radius = o.shrink ? Math.min(o.radius, 3 * o.radius * Math.sqrt(Math.log(n + 1) / (n + 1))) : o.radius;
   const ev: RrtEvent = { sample, nearest, steered, added: -1, candidates: [], chosenParent: -1, rewires: [], radius };
+  // A sample that lands on an existing node (e.g. the goal, re-sampled by goal bias) adds nothing:
+  // a zero-length edge would only create a duplicate node and spurious rewires.
+  if (dist(tree.nodes[nearest].p, steered) < 1e-9) return ev;
   if (!segmentFree(world, tree.nodes[nearest].p, steered)) return ev;
 
   let parent = nearest;

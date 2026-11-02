@@ -3,8 +3,9 @@
 // Scales with its viewBox; towns are buttons (≥ 40 px touch targets) when `onNode` is given.
 import { memo, useMemo, type KeyboardEvent } from 'react';
 import type { Algo } from '../../../core/graph';
-import type { MapDef, Pt } from './astarMaps';
+import type { MapDef } from './astarMaps';
 import { num, type ClosedRow, type OpenRow, type StepUpdate } from './astarTable';
+import { edgeKey, layoutLabels, numText, type InfoSlot } from './astarLabels';
 import '../astar.css';
 
 export interface GraphView {
@@ -47,117 +48,55 @@ export interface RoadGraphProps {
 
 const R = 17;
 
-type Dir = 'E' | 'NE' | 'N' | 'NW' | 'W' | 'SW' | 'S' | 'SE';
-const DIRS: Record<Dir, Pt> = {
-  E: { x: 1, y: 0 },
-  NE: { x: Math.SQRT1_2, y: -Math.SQRT1_2 },
-  N: { x: 0, y: -1 },
-  NW: { x: -Math.SQRT1_2, y: -Math.SQRT1_2 },
-  W: { x: -1, y: 0 },
-  SW: { x: -Math.SQRT1_2, y: Math.SQRT1_2 },
-  S: { x: 0, y: 1 },
-  SE: { x: Math.SQRT1_2, y: Math.SQRT1_2 },
-};
-const ALL_DIRS = Object.keys(DIRS) as Dir[];
-
-const angDist = (a: number, b: number) => {
-  const d = Math.abs(a - b) % (2 * Math.PI);
-  return d > Math.PI ? 2 * Math.PI - d : d;
-};
-const dirAngle = (d: Dir) => Math.atan2(DIRS[d].y, DIRS[d].x);
-
-/** Rough label box for a text anchored on side `d` of a town at p. */
-function labelBox(p: Pt, d: Dir, w: number, hgt: number): [number, number, number, number] {
-  const v = DIRS[d];
-  const cx = p.x + v.x * (R + 6 + w / 2);
-  const cy = p.y + v.y * (R + 6 + hgt / 2);
-  return [cx - w / 2, cy - hgt / 2, cx + w / 2, cy + hgt / 2];
-}
-
-interface Placement {
-  name: Dir;
-  info: Dir;
-}
-
-/** Put each town's name and its numbers in the widest gaps between its roads, away from other towns and the edge. */
-function placeLabels(map: MapDef): Record<string, Placement> {
-  const out: Record<string, Placement> = {};
-  const ids = map.graph.nodes.map((n) => n.id);
-  const inc = new Map<string, number[]>(ids.map((id) => [id, []]));
-  for (const [a, b] of map.graph.edges) {
-    const pa = map.pos[a];
-    const pb = map.pos[b];
-    inc.get(a)!.push(Math.atan2(pb.y - pa.y, pb.x - pa.x));
-    inc.get(b)!.push(Math.atan2(pa.y - pb.y, pa.x - pb.x));
-  }
-  for (const id of ids) {
-    const p = map.pos[id];
-    const score = (d: Dir, w: number, hgt: number) => {
-      const th = dirAngle(d);
-      let s = Math.min(Math.PI, ...inc.get(id)!.map((a) => angDist(th, a)));
-      for (const other of ids) {
-        if (other === id) continue;
-        const q = map.pos[other];
-        const dist = Math.hypot(q.x - p.x, q.y - p.y);
-        if (dist > 130) continue;
-        const da = angDist(th, Math.atan2(q.y - p.y, q.x - p.x));
-        if (da < 0.75) s -= (0.75 - da) * ((130 - dist) / 130) * 2.5;
-      }
-      const [x0, y0, x1, y1] = labelBox(p, d, w, hgt);
-      if (x0 < 2 || y0 < 2 || x1 > map.vb.w - 2 || y1 > map.vb.h - 2) s -= 3;
-      return s;
-    };
-    const longName = map.long(id);
-    const nameW = Math.max(36, (longName ? longName.length : 4) * 6.6 + 34);
-    let bestName: Dir = 'E';
-    let bestNameS = -Infinity;
-    for (const d of ALL_DIRS) {
-      const bonus = d === 'E' || d === 'W' ? 0.3 : d === 'N' || d === 'S' ? 0.1 : 0;
-      const s = score(d, nameW, 14) + bonus;
-      if (s > bestNameS) {
-        bestNameS = s;
-        bestName = d;
-      }
-    }
-    let bestInfo: Dir = 'S';
-    let bestInfoS = -Infinity;
-    for (const d of ALL_DIRS) {
-      if (angDist(dirAngle(d), dirAngle(bestName)) < Math.PI / 2 - 1e-6) continue;
-      const s = score(d, 52, 30) + (d === 'N' || d === 'S' ? 0.1 : 0);
-      if (s > bestInfoS) {
-        bestInfoS = s;
-        bestInfo = d;
-      }
-    }
-    out[id] = { name: bestName, info: bestInfo };
-  }
-  return out;
-}
-
-/** Text anchor and offset of a label on side d. `line` stacks lines away from the town. */
-function anchorAt(p: Pt, d: Dir, line: number, lines: number): { x: number; y: number; anchor: 'start' | 'middle' | 'end' } {
-  const v = DIRS[d];
-  const gap = R + 6;
-  const lh = 14;
-  const anchor = v.x > 0.3 ? 'start' : v.x < -0.3 ? 'end' : 'middle';
-  const x = p.x + v.x * gap;
-  let y: number;
-  if (v.y < -0.3) y = p.y + v.y * gap - (lines - 1 - line) * lh - 2; // above: last line nearest the town
-  else if (v.y > 0.3) y = p.y + v.y * gap + 10 + line * lh; // below
-  else y = p.y + 4 - ((lines - 1) * lh) / 2 + line * lh; // beside, centred
-  return { x, y, anchor };
-}
-
-function edgeKey(a: string, b: string) {
-  return a < b ? `${a}|${b}` : `${b}|${a}`;
+/** Characters to reserve for the widest f/g or h line on this map ("f 13.8 ↓", "h 11.1 !"). */
+function infoChars(map: MapDef, values: boolean, flags: boolean): number {
+  const total = map.graph.edges.reduce((t, e) => t + e[2], 0);
+  const digits = Math.max(numText(total).length, ...map.graph.edges.map((e) => numText(e[2]).length));
+  return Math.max(values ? digits + 4 : 0, digits + 2 + (flags ? 2 : 0));
 }
 
 export const RoadGraph = memo(function RoadGraph({ map, start, goal, h, hBad, hEdited, view, algo = 'astar', showValues = true, onNode, nodeAction, ariaLabel, figure }: RoadGraphProps) {
-  const place = useMemo(() => placeLabels(map), [map]);
-  const centroid = useMemo(() => {
-    const ps = Object.values(map.pos);
-    return { x: ps.reduce((t, p) => t + p.x, 0) / ps.length, y: ps.reduce((t, p) => t + p.y, 0) / ps.length };
-  }, [map]);
+  // Lines reserved beside every town: f/g (when values are shown) and h. Fixed per map and toggle, so labels never
+  // jump while stepping; a line that has nothing to say this step is simply left blank.
+  const slots: InfoSlot[] = [...(showValues && !figure ? (['val'] as const) : []), ...(h ? (['h'] as const) : [])];
+  const slotKey = slots.join(',');
+  const scaleW = map.scale && !figure ? map.scale * 2 : 0;
+  const layout = useMemo(
+    () =>
+      layoutLabels(map, {
+        start,
+        goal,
+        slots: slotKey ? (slotKey.split(',') as InfoSlot[]) : [],
+        infoChars: infoChars(map, slotKey.includes('val'), !figure),
+        scaleBar: scaleW ? { x0: map.vb.w - 26 - scaleW, y0: map.vb.h - 28, x1: map.vb.w - 14, y1: map.vb.h - 8 } : undefined,
+      }),
+    [map, start, goal, slotKey, figure, scaleW]
+  );
+
+  // Static figures are cropped to what is drawn (towns and labels), so a flat map does not leave a blank band.
+  const vb = useMemo(() => {
+    if (!figure) return { text: `0 0 ${map.vb.w} ${map.vb.h}`, w: map.vb.w };
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    const grow = (a: number, b: number, c: number, d: number) => {
+      x0 = Math.min(x0, a);
+      y0 = Math.min(y0, b);
+      x1 = Math.max(x1, c);
+      y1 = Math.max(y1, d);
+    };
+    for (const n of map.graph.nodes) {
+      const p = map.pos[n.id];
+      grow(p.x - 24, p.y - 24, p.x + 24, p.y + 24);
+    }
+    for (const sp of [...Object.values(layout.name), ...Object.values(layout.info), ...Object.values(layout.cost)]) if (sp) grow(sp.box.x0, sp.box.y0, sp.box.x1, sp.box.y1);
+    x0 = Math.max(0, x0 - 6);
+    y0 = Math.max(0, y0 - 6);
+    x1 = Math.min(map.vb.w, x1 + 6);
+    y1 = Math.min(map.vb.h, y1 + 6);
+    return { text: `${x0.toFixed(1)} ${y0.toFixed(1)} ${(x1 - x0).toFixed(1)} ${(y1 - y0).toFixed(1)}`, w: x1 - x0 };
+  }, [figure, map, layout]);
 
   const openBy = new Map((view?.open ?? []).map((r) => [r.node, r]));
   const closedBy = new Map((view?.closed ?? []).map((r) => [r.node, r]));
@@ -198,8 +137,9 @@ export const RoadGraph = memo(function RoadGraph({ map, start, goal, h, hBad, hE
   return (
     <svg
       className={`plan-astar-svg${figure ? ' is-figure' : ''}${onNode ? ' is-interactive' : ''}`}
-      viewBox={`0 0 ${map.vb.w} ${map.vb.h}`}
+      viewBox={vb.text}
       width="100%"
+      style={figure ? { maxWidth: `${Math.round(vb.w)}px` } : undefined}
       role="group"
       aria-label={ariaLabel}
     >
@@ -262,22 +202,11 @@ export const RoadGraph = memo(function RoadGraph({ map, start, goal, h, hBad, hE
       {/* road costs */}
       <g>
         {map.graph.edges.map(([a, b, w]) => {
-          const pa = P(a);
-          const pb = P(b);
-          const mx = (pa.x + pb.x) / 2;
-          const my = (pa.y + pb.y) / 2;
-          const L = Math.hypot(pb.x - pa.x, pb.y - pa.y) || 1;
-          let nx = -(pb.y - pa.y) / L;
-          let ny = (pb.x - pa.x) / L;
-          if ((mx + nx - centroid.x) ** 2 + (my + ny - centroid.y) ** 2 < (mx - nx - centroid.x) ** 2 + (my - ny - centroid.y) ** 2) {
-            nx = -nx;
-            ny = -ny;
-          }
-          const off = 11;
           const k = edgeKey(a, b);
+          const sp = layout.cost[k];
           const hot = relax.has(k) || pathEdges.has(k) || pendingEdges.has(k);
           return (
-            <text key={`c${k}`} x={mx + nx * off} y={my + ny * off + 4} textAnchor="middle" className={`plan-astar-cost${hot ? ' is-hot' : ''}`}>
+            <text key={`c${k}`} x={sp.tx} y={sp.ty} textAnchor={sp.anchor} className={`plan-astar-cost${hot ? ' is-hot' : ''}`}>
               {num(w)}
             </text>
           );
@@ -292,16 +221,17 @@ export const RoadGraph = memo(function RoadGraph({ map, start, goal, h, hBad, hE
         const popped = view?.popped === id;
         const pending = view?.pending === id;
         const flash = view?.flash?.node === id ? (view.flash.ok ? 'is-flash-ok' : 'is-flash-bad') : '';
-        const pl = place[id];
         const longName = map.long(id);
         const role = id === start ? 'start' : id === goal ? 'goal' : '';
         const val = valueText(id);
         const hv = h ? h(id) : undefined;
         const nameLine = longName || role ? { text: longName ?? '', role } : null;
-        const infoLines: { cls: string; text: string }[] = [];
-        if (val) infoLines.push({ cls: `plan-astar-val is-${val.tone}`, text: val.text });
-        if (hv !== undefined && Number.isFinite(hv))
-          infoLines.push({ cls: `plan-astar-hval${hBad?.has(id) ? ' is-bad' : hEdited?.has(id) ? ' is-edited' : ''}`, text: `h ${num(hv)}${hBad?.has(id) ? ' !' : ''}` });
+        const info = layout.info[id];
+        const infoLines: { cls: string; text: string; y: number }[] = [];
+        if (info && val && info.lineY.val !== undefined) infoLines.push({ cls: `plan-astar-val is-${val.tone}`, text: val.text, y: info.lineY.val });
+        if (info && hv !== undefined && Number.isFinite(hv) && info.lineY.h !== undefined)
+          infoLines.push({ cls: `plan-astar-hval${hBad?.has(id) ? ' is-bad' : hEdited?.has(id) ? ' is-edited' : ''}`, text: `h ${num(hv)}${hBad?.has(id) ? ' !' : ''}`, y: info.lineY.h });
+        const nameSpot = layout.name[id];
         const label = `${map.code(id)}${longName && longName !== map.code(id) ? ` ${longName}` : ''}${role ? `, ${role}` : ''}${isClosed ? ', in Closed' : isOpen ? ', in Open' : ''}${val ? `, ${val.text}` : ''}${hv !== undefined ? `, h ${num(hv)}` : ''}`;
         return (
           <g key={id}>
@@ -312,7 +242,7 @@ export const RoadGraph = memo(function RoadGraph({ map, start, goal, h, hBad, hE
                 ? {
                     role: 'button',
                     tabIndex: 0,
-                    'aria-label': `${label}${nodeAction ? `. Tap to ${nodeAction}` : ''}`,
+                    'aria-label': `${label}${nodeAction ? `. Click or press Enter to ${nodeAction}` : ''}`,
                     onClick: () => onNode(id),
                     onKeyDown: (e: KeyboardEvent<SVGGElement>) => key(e, id),
                   }
@@ -328,10 +258,10 @@ export const RoadGraph = memo(function RoadGraph({ map, start, goal, h, hBad, hE
               </text>
             </g>
             {nameLine &&
+              nameSpot &&
               (() => {
-                const a = anchorAt(p, pl.name, 0, 1);
                 return (
-                  <text x={a.x} y={a.y} textAnchor={a.anchor} className="plan-astar-name">
+                  <text x={nameSpot.tx} y={nameSpot.ty} textAnchor={nameSpot.anchor} className="plan-astar-name">
                     {nameLine.text}
                     {nameLine.role && (
                       <tspan className={`plan-astar-roletag is-${nameLine.role}`}>
@@ -342,14 +272,12 @@ export const RoadGraph = memo(function RoadGraph({ map, start, goal, h, hBad, hE
                   </text>
                 );
               })()}
-            {infoLines.map((ln, i) => {
-              const a = anchorAt(p, pl.info, i, infoLines.length);
-              return (
-                <text key={i} x={a.x} y={a.y} textAnchor={a.anchor} className={ln.cls}>
+            {info &&
+              infoLines.map((ln, i) => (
+                <text key={i} x={info.tx} y={ln.y} textAnchor={info.anchor} className={ln.cls}>
                   {ln.text}
                 </text>
-              );
-            })}
+              ))}
           </g>
         );
       })}

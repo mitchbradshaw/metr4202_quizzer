@@ -347,7 +347,7 @@ export default function RoadMapAStar() {
           )}
         </span>
       </div>
-      {!finished && drive.phase === 'pick' && <p className="plan-astar-sub">Tap the town on the map. Open is listed unsorted below: find the lowest priority yourself.</p>}
+      {!finished && drive.phase === 'pick' && <p className="plan-astar-sub">Click the town on the map. Open is listed unsorted below: find the lowest priority yourself.</p>}
       {drive.verdict && (
         <Callout kind={drive.verdict.ok ? 'ok' : 'bad'} title={`Step ${drive.verdict.k}: ${drive.verdict.ok ? (drive.verdict.tie ? 'tie: accepted' : 'right') : 'not that one'}`}>
           <Rich text={drive.verdict.message} />
@@ -519,7 +519,7 @@ export default function RoadMapAStar() {
             <div className="plan-astar-row">
               {mode === 'watch' ? (
                 <>
-                  <span className="small muted">Tap a town to make it the</span>
+                  <span className="small muted">Click a town to make it the</span>
                   <Segmented
                     size="sm"
                     label="Tapping a town sets the"
@@ -532,7 +532,7 @@ export default function RoadMapAStar() {
                   />
                 </>
               ) : (
-                <span className="small muted">Tap the town that is popped next.</span>
+                <span className="small muted">Click the town that is popped next.</span>
               )}
               <Toggle checked={showH} onChange={setShowH} label="h on map" />
               <Toggle checked={showValues} onChange={setShowValues} label="f / g on map" />
@@ -570,7 +570,7 @@ export default function RoadMapAStar() {
           <div className="plan-astar-card">
             <h3 className="plan-astar-h3">Same question, four searches</h3>
             <p className="plan-astar-sub">
-              {name(start)} to {name(goal)} with the current heuristic. Tap a name to step through it.
+              {name(start)} to {name(goal)} with the current heuristic. Click a name to step through it.
             </p>
             <div className="plan-astar-scroll">
               <table className="plan-astar-compare">
@@ -632,14 +632,15 @@ export default function RoadMapAStar() {
               )}
             </div>
             <Slider
-              label={`h(${name(labNode)})`}
-              tex="h"
-              tip={`heuristic of ${name(labNode)}: estimated distance to the goal (${map.unit})`}
+              label="estimate"
+              tex={`h(\\text{${name(labNode)}})`}
+              tip={`heuristic of ${name(labNode)}: estimated distance to the goal (${map.unit}); its true road distance is h* = ${num(hStar.get(labNode) ?? NaN)} ${map.unit}`}
               value={hRec[labNode] ?? 0}
               min={0}
               max={hMax}
               step={hStep}
               unit={map.unit}
+              format={(v) => `${num(v)} ${map.unit}`}
               onChange={(v) => editH(labNode, big ? Math.round(v / 50) * 50 : Math.round(v * 10) / 10)}
             />
             <Callout
