@@ -12,7 +12,7 @@ import { Rich } from '../../../ui/Rich';
 import { Dot, HLine, Line, Plot } from '../../../plot/Plot';
 import { useRaf, useWidth } from '../../../anim/hooks';
 import { completeChallenge, useProgress } from '../../../app/store';
-import { BELIEF_C, FREE_C, OCC_C, ZChip, colorOfZ, fx, revealEl, sgn, tx } from './slamCommon';
+import { BELIEF_C, FREE_C, OCC_C, ZChip, colorOfZ, fx, revealEl, sgn, tx, useStickyFit } from './slamCommon';
 
 export const meta: Omit<ExploreItem, 'component'> = {
   id: 'occupancy',
@@ -50,6 +50,7 @@ export default function OccupancyCell() {
   const acc = useRef(0);
   const leftRef = useRef<HTMLDivElement>(null);
   const [wfWrap, wfW] = useWidth<HTMLDivElement>(620);
+  const unstuck = useStickyFit(leftRef);
   const challengeDone = !!useProgress().challenges[CHALLENGE_ID];
 
   const s: BinarySensor = useMemo(() => ({ tp, tn }), [tp, tn]);
@@ -117,7 +118,7 @@ export default function OccupancyCell() {
 
   // ---------------------------------------------------------------- left: the two pictures
   const left = (
-    <div className="slam-left slam-panel" ref={leftRef}>
+    <div className={`slam-left slam-panel${unstuck ? ' is-unstuck' : ''}`} ref={leftRef}>
       <div className="slam-bar">
         <Button variant="default" className="slam-occ-add is-occ" onClick={() => add('occ')} disabled={full} title="The sensor reports OCCUPIED">
           + OCCUPIED
@@ -176,6 +177,7 @@ export default function OccupancyCell() {
         <Slider label="true positive" tex="\text{TP}" tip="p(z = occ | m): the chance an occupied cell reads OCCUPIED. 1 − TP is the miss (false-negative) rate." value={tp} min={0.5} max={0.995} step={0.005} onChange={setTp} format={(v) => v.toFixed(3)} />
         <Slider label="true negative" tex="\text{TN}" tip="p(z = free | ¬m): the chance a free cell reads FREE. 1 − TN is the false-positive rate." value={tn} min={0.5} max={0.995} step={0.005} onChange={setTn} format={(v) => v.toFixed(3)} />
         <SensorTable tp={tp} tn={tn} last={n ? rows[n - 1].z : null} />
+        <InverseTable tp={tp} tn={tn} p0={p0} last={n ? rows[n - 1].z : null} />
         <div className="slam-occ-lr">
           <div className="slam-occ-lrbox is-occ">
             <div>
@@ -389,6 +391,69 @@ function SensorTable({ tp, tn, last }: { tp: number; tn: number; last: BinaryRea
   );
 }
 
+/**
+ * The inverse sensor model p(state | z) of review deck slide 11: Bayes' rule on ONE reading from the prior. Its
+ * COLUMNS sum to 1 (the sensor model's ROWS do). The course's log-odds update adds ln[p(m|z) / p(¬m|z)] − l₀.
+ */
+function InverseTable({ tp, tn, p0, last }: { tp: number; tn: number; p0: number; last: BinaryReading | null }) {
+  const q = p0 > 0 && p0 < 1 ? p0 : 0.5;
+  const mo = (tp * q) / (tp * q + (1 - tn) * (1 - q));
+  const mf = ((1 - tp) * q) / ((1 - tp) * q + tn * (1 - q));
+  const col = (z: BinaryReading) => (last === z ? 'is-col' : undefined);
+  const l0 = logOdds(q);
+  return (
+    <div className="slam-table-wrap">
+      <table className="slam-table slam-occ-sensor slam-occ-inverse" aria-label="Inverse sensor model p(state | z)">
+        <thead>
+          <tr>
+            <th title={`Bayes on one reading from the prior ${q}`}>
+              <Rich inline text={`$p(\\cdot \\mid z)$, prior ${q}`} />
+            </th>
+            <th className={col('occ')}>
+              <Rich inline text="$z = \text{occ}$" />
+            </th>
+            <th className={col('free')}>
+              <Rich inline text="$z = \text{free}$" />
+            </th>
+            <th>step</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>
+              <Rich inline text="$m$" />
+            </th>
+            <td className={col('occ')}>{mo.toFixed(4)}</td>
+            <td className={col('free')}>{mf.toFixed(4)}</td>
+            <td rowSpan={2} className="slam-occ-steps">
+              {`occ ${sgn(logOdds(mo) - l0)}`}
+              <br />
+              {`free ${sgn(logOdds(mf) - l0)}`}
+            </td>
+          </tr>
+          <tr>
+            <th>
+              <Rich inline text="$\neg m$" />
+            </th>
+            <td className={col('occ')}>{(1 - mo).toFixed(4)}</td>
+            <td className={col('free')}>{(1 - mf).toFixed(4)}</td>
+          </tr>
+          <tr className="is-sum">
+            <th>Σ</th>
+            <td>1</td>
+            <td>1</td>
+            <td />
+          </tr>
+        </tbody>
+      </table>
+      <Rich
+        className="note"
+        text={`Inverse sensor model (review deck slide 11): Bayes on one reading, so each **column** sums to 1; the sensor model’s **rows** do. The course update adds $\\ln\\frac{p(m \\mid z)}{1 - p(m \\mid z)} - l_0$: the same steps as $\\ln\\text{LR}$.`}
+      />
+    </div>
+  );
+}
+
 /** Horizontal waterfall in log-odds: the prior, then one fixed-length arrow per reading. */
 function Waterfall({ rows, p0, width }: { rows: OccRow[]; p0: number; width: number }) {
   const l0 = logOdds(p0);
@@ -482,6 +547,10 @@ function Waterfall({ rows, p0, width }: { rows: OccRow[]; p0: number; width: num
       {ticks.map((v) => (
         <line key={`g${v}`} className={v === 0 ? 'slam-wf-zero' : 'slam-wf-grid'} x1={sx(v)} x2={sx(v)} y1={top - 4} y2={axisY} />
       ))}
+      {/* current value: the line goes behind the arrows and their labels, the dot on top of the axis */}
+      <g className="slam-wf-now" style={{ transform: `translateX(${xEnd}px)` }}>
+        <line x1={0} x2={0} y1={top - 4} y2={axisY} className="slam-wf-nowline" />
+      </g>
       {/* prior row */}
       <text className="slam-wf-rowlab" x={padL - 8} y={yRow(0) + rowH / 2 + 3.5} textAnchor="end">
         prior
@@ -502,16 +571,14 @@ function Waterfall({ rows, p0, width }: { rows: OccRow[]; p0: number; width: num
         </g>
       )}
       {bars}
-      {/* current value */}
-      <g className="slam-wf-now" style={{ transform: `translateX(${xEnd}px)` }}>
-        <line x1={0} x2={0} y1={top - 4} y2={axisY} className="slam-wf-nowline" />
-        <circle cx={0} cy={axisY} r={5.5} fill={BELIEF_C} stroke="var(--surface)" strokeWidth={2} />
-      </g>
       <text className="slam-wf-head" x={padL + iw / 2} y={13} textAnchor="middle">
         {`log-odds l = ${sgn(lEnd, 2)}   ⇔   p(m) = ${pEnd.toFixed(4)}`}
       </text>
       {/* axes */}
       <line x1={padL} x2={padL + iw} y1={axisY} y2={axisY} className="slam-wf-axis" />
+      <g className="slam-wf-now" style={{ transform: `translateX(${xEnd}px)` }}>
+        <circle cx={0} cy={axisY} r={5.5} fill={BELIEF_C} stroke="var(--surface)" strokeWidth={2} />
+      </g>
       {ticks.map((v) => (
         <text key={`t${v}`} className="slam-wf-tick" x={sx(v)} y={axisY + 14} textAnchor="middle">
           {v === 0 ? '0' : v > 0 ? `+${v}` : `−${-v}`}
@@ -529,7 +596,7 @@ function Waterfall({ rows, p0, width }: { rows: OccRow[]; p0: number; width: num
         p(m)
       </text>
       {n === 0 && !inf && (
-        <text className="slam-wf-side" x={padL + iw / 2} y={top + rowH * 2.6} textAnchor="middle">
+        <text className="slam-wf-side" x={l0 > 0 ? sx(l0) - 12 : sx(l0) + 12} y={top + rowH * 2.6} textAnchor={l0 > 0 ? 'end' : 'start'}>
           each reading adds one arrow here
         </text>
       )}

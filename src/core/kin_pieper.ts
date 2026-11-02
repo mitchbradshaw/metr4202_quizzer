@@ -79,6 +79,9 @@ export function pointLineDistance(x: Vec3, p: Vec3, d: Vec3): number {
 
 export const isParallel = (d1: Vec3, d2: Vec3) => norm3(cross3(d1, d2)) < EPS;
 
+/** Two parallel axes that are the same line (a PUMA's roll axes 4 and 6 at the home pose): parallel, and they meet everywhere. */
+export const sameLine = (J: readonly PJoint[], a: number, b: number) => isParallel(J[a].axis, J[b].axis) && pointLineDistance(J[b].at, J[a].at, J[a].axis) < EPS;
+
 /** Where two axes meet, or null (parallel or skew). */
 export function axesMeet(p1: Vec3, d1: Vec3, p2: Vec3, d2: Vec3): Vec3 | null {
   const c = closestPoints(p1, d1, p2, d2);
@@ -268,11 +271,11 @@ export const LAYOUTS: PLayout[] = [
   {
     id: 'gantry',
     name: 'Gantry (P–P–P) + spherical wrist',
-    blurb: 'Three slides along x, y and z carry a three-axis wrist.',
+    blurb: 'Three slides along x, y and z carry a three-axis wrist that points along x.',
     source: 'Summary notes §6 (decoupling)',
-    joints: [P(X, [0.6, 0, 2.5]), P(Y, [1.8, 0, 2.5]), P(NZ, [1.8, 0, 1.55]), R(Z, [1.8, 0, 0.8]), R(Y, [1.8, 0, 0]), R(Z, [1.8, 0, -0.8])],
-    links: [lk(0, [-0.6, 0, 2.5], [0.6, 0, 2.5]), lk(1, [0.6, 0, 2.5], [1.8, 0, 2.5]), lk(2, [1.8, 0, 2.5], [1.8, 0, 1.55]), lk(3, [1.8, 0, 1.55], [1.8, 0, 0.8]), lk(4, [1.8, 0, 0.8], [1.8, 0, 0]), lk(5, [1.8, 0, 0], [1.8, 0, -0.8])],
-    tool: { at: [1.8, 0, -1.45], dir: NZ, side: X },
+    joints: [P(X, [0.4, 0, 2.3]), P(Y, [1.5, 0, 2.3]), P(NZ, [1.5, 0, 1.45]), R(X, [2.5, 0, 0.75]), R(Y, [3.5, 0, 0.75]), R(X, [4.4, 0, 0.75])],
+    links: [lk(0, [-0.8, 0, 2.3], [0.4, 0, 2.3]), lk(1, [0.4, 0, 2.3], [1.5, 0, 2.3]), lk(2, [1.5, 0, 2.3], [1.5, 0, 1.45]), lk(3, [1.5, 0, 1.45], [1.5, 0, 0.75], [2.5, 0, 0.75]), lk(4, [2.5, 0, 0.75], [3.5, 0, 0.75]), lk(5, [3.5, 0, 0.75], [4.4, 0, 0.75])],
+    tool: { at: [5.05, 0, 0.75], dir: X, side: Z },
     ground: false,
     closedForm: true,
     reason: 'meet',

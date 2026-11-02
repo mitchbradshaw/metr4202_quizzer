@@ -123,7 +123,8 @@ function build(spec: CorridorSpec, tier: Tier): SolveInstance {
   ].join('\n\n');
 
   const cells = sol.cells;
-  const rows = cells.map((i) => `\\text{${cellName(i)}}`);
+  // Matrix row labels are Rich text: plain cell names (TeX would need $ … $).
+  const rows = cells.map((i) => cellName(i));
   const answerPred = col(cells.map((i) => sol.predicted[i]));
   const firstOnly = col(cells.map((i) => sol.contributions.find((c) => c.to === i)!.mass));
   const parts: SolvePart[] = [];
@@ -188,15 +189,26 @@ function build(spec: CorridorSpec, tier: Tier): SolveInstance {
     '$$P(z) = \\sum_{x_1} P(z \\mid x_1)\\,\\overline{bel}(x_1), \\qquad bel(x_1) = \\frac{P(z \\mid x_1)\\,\\overline{bel}(x_1)}{P(z)}$$',
     `Likelihood of ${zTxt}: ${z === 'door' ? `$P(\\text{door} \\mid \\text{door}) = ${num(sensor.hit)}$, $P(\\text{door} \\mid \\text{wall}) = ${num(sensor.falseAlarm)}$` : `$P(\\text{no door} \\mid \\text{door}) = 1 - ${num(sensor.hit)} = ${num(1 - sensor.hit)}$, $P(\\text{no door} \\mid \\text{wall}) = 1 - ${num(sensor.falseAlarm)} = ${num(1 - sensor.falseAlarm)}$`}.`,
   ].join('\n\n');
-  const h3 = [
-    `Contributions: ${sol.contributions.map((c) => `${cellName(c.from)} ${moveWord(c.d)} → ${cellName(c.to)}: ${num(c.p)} × ${num(prior[c.from])} = ${num(c.mass)}`).join('; ')}.`,
-    `$P(z) = ${cells.map((i) => `${num(lik(i))}(${num(sol.predicted[i])})`).join(' + ')}$.`,
-  ].join('\n\n');
+  // Contributions grouped by starting cell (one bullet each), and the sums for cells that two arrows reach.
+  const byStart = startCells
+    .map((s) => `- From ${cellName(s)} ($bel(x_0)$ = ${num(prior[s])}):${sol.contributions.filter((c) => c.from === s).map((c) => `${moveWord(c.d)} → ${cellName(c.to)}, ${num(c.p)} × ${num(prior[s])} = ${num(c.mass)}`).join('; ')}.`)
+    .join('\n');
+  const shared = cells.filter((i) => sol.contributions.filter((c) => c.to === i).length > 1);
+  const sharedTxt = shared.length
+    ? `Arrows into the same cell add: ${shared.map((i) => `$\\overline{bel}(${i + 1}) = ${sol.contributions.filter((c) => c.to === i).map((c) => num(c.mass)).join(' + ')} = ${num(sol.predicted[i])}$`).join(', ')}.`
+    : '';
+  const h3 = ['Prediction, arrow by arrow:', byStart, sharedTxt, `Correction: $P(z) = ${cells.map((i) => `${num(lik(i))}(${num(sol.predicted[i])})`).join(' + ')}$.`].filter(Boolean).join('\n\n');
+  const predTab = `$$\\begin{array}{c|c|l|c|l} x_0 & bel(x_0) & \\text{outcome} & x_1 & p(x_1 \\mid u, x_0)\\,bel(x_0) \\\\ \\hline ${sol.contributions
+    .map((c) => `${c.from + 1} & ${num(prior[c.from])} & \\text{${moveWord(c.d)}}\\ (${num(c.p)}) & ${c.to + 1} & ${num(c.p)} \\times ${num(prior[c.from])} = ${num(c.mass)}`)
+    .join(' \\\\ ')} \\end{array}$$`;
   const tab = `$$\\begin{array}{c|c|c|c|c} x_1 & \\overline{bel} & P(z \\mid x_1) & \\text{product} & bel \\\\ \\hline ${cells
     .map((i) => `\\text{${i + 1} (${doors[i] ? 'door' : 'wall'})} & ${num(sol.predicted[i])} & ${num(lik(i))} & ${num(sol.product[i], 5)} & ${num(sol.posterior[i])}`)
     .join(' \\\\ ')} \\\\ \\hline & 1 & & ${num(sol.evidence, 5)} & 1 \\end{array}$$`;
   const h4 = [
-    `**(a)** ${cells.map((i) => `**${cellName(i)}: ${num(sol.predicted[i])}**`).join(', ')}.`,
+    '**(a) Prediction** (move right): every starting cell splits over the outcomes.',
+    predTab,
+    `${sharedTxt ? `${sharedTxt} ` : ''}**${cells.map((i) => `${cellName(i)}: ${num(sol.predicted[i])}`).join(', ')}** (sum ${num(cells.reduce((a, i) => a + sol.predicted[i], 0))} ✓).`,
+    `**(b), (c) Correction** with $z$ = ${zTxt}: prior × likelihood = product; the products sum to $P(z)$.`,
     tab,
     `**(b)** $P(z)$ = **${num(sol.evidence, 4)}**. **(c)** ${cells.map((i) => `${cellName(i)} **${num(sol.posterior[i])}**`).join(', ')}. **(d)** **${cellName(best)}**.`,
   ].join('\n\n');

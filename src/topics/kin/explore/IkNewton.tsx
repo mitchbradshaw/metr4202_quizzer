@@ -28,7 +28,7 @@ export const meta: Omit<ExploreItem, 'component'> = {
   summary:
     'Drag the target and the initial guess of a planar arm and step $\\theta \\leftarrow \\theta + J^{-1}e$. See it converge in a few steps, find the other elbow from a different guess, blow up near a singularity (and how damping $\\lambda$ tames it), fail outside the workspace, and land on one of infinitely many solutions with three links.',
   notice:
-    'Numerical IK finds the solution **nearest its initial guess** (the coloured basins), not "the" answer; near a singularity ($\\det J \\approx 0$) the steps blow up, and outside the workspace it never converges.',
+    'Numerical IK returns the solution **whose basin the initial guess starts in** (usually the nearest one), not "the" answer; near a singularity ($\\det J \\approx 0$) the steps blow up, and outside the workspace it never converges.',
   minutes: 10,
 };
 
@@ -390,9 +390,16 @@ export default function IkNewton() {
   const api = useRef<Record<string, () => void>>({});
   api.current = {
     elbow: () => load('elbow', 'play'),
-    outside: () => load('outside', 'play'),
+    // all 30 iterations thrash without converging: play them quickly
+    outside: () => {
+      st.setSpeed(8);
+      load('outside', 'play');
+    },
     stretch: () => load('stretched', 'first'),
-    damp: () => load('stretched', 'play', { lambda: 0.2 }),
+    damp: () => {
+      st.setSpeed(4);
+      load('stretched', 'play', { lambda: 0.2 });
+    },
     redundant: () => {
       setShowSols(true);
       load('redundant', 'play');
@@ -713,15 +720,37 @@ export default function IkNewton() {
                 ))}
                 {i > 0 && <circle cx={jx(wrapTau(cur.theta[0]))} cy={jy(wrapTau(cur.theta[1]))} r={5} fill="var(--text)" stroke="var(--surface)" strokeWidth={1.5} />}
                 <circle cx={jx(wrapTau(guess[0]))} cy={jy(wrapTau(guess[1]))} r={8} fill="var(--surface)" fillOpacity={0.6} stroke="var(--accent)" strokeWidth={2.6} />
-                <text
-                  className="kin-ik-note"
-                  x={jx(wrapTau(guess[0])) + (wrapTau(guess[0]) > 5.2 ? -11 : 11)}
-                  y={jy(wrapTau(guess[1])) + (wrapTau(guess[1]) > 5.9 ? 20 : -9)}
-                  textAnchor={wrapTau(guess[0]) > 5.2 ? 'end' : 'start'}
-                  style={{ fill: 'var(--accent)' }}
-                >
-                  θ⁽⁰⁾
-                </text>
+                {(() => {
+                  // the θ⁽⁰⁾ tag goes to whichever corner keeps it inside the plot and clear of the A/B markers and the iterate
+                  const gx = jx(wrapTau(guess[0]));
+                  const gy = jy(wrapTau(guess[1]));
+                  const avoid = sols.map((s) => [jx(s[0]), jy(s[1])]);
+                  if (i > 0) avoid.push([jx(wrapTau(cur.theta[0])), jy(wrapTau(cur.theta[1]))]);
+                  const cands: [number, number, 'start' | 'end'][] = [
+                    [11, -9, 'start'],
+                    [-11, -9, 'end'],
+                    [11, 20, 'start'],
+                    [-11, 20, 'end'],
+                  ];
+                  let best = cands[0];
+                  let bestScore = -Infinity;
+                  for (const c of cands) {
+                    const lx = gx + c[0] + (c[2] === 'start' ? 12 : -12);
+                    const ly = gy + c[1] - 4;
+                    const inside = lx > JS.L + 14 && lx < JS.L + JS.SZ - 14 && ly > JS.T + 10 && ly < JS.T + JS.SZ - 4;
+                    const clear = Math.min(60, ...avoid.map(([ax, ay]) => Math.hypot(ax - lx, ay - ly)));
+                    const score = clear + (inside ? 100 : 0);
+                    if (score > bestScore) {
+                      bestScore = score;
+                      best = c;
+                    }
+                  }
+                  return (
+                    <text className="kin-ik-note" x={gx + best[0]} y={gy + best[1]} textAnchor={best[2]} style={{ fill: 'var(--accent)' }}>
+                      θ⁽⁰⁾
+                    </text>
+                  );
+                })()}
               </g>
             </svg>
           </div>
@@ -954,8 +983,8 @@ const PredictBlock = memo(function PredictBlock({ api }: { api: MutableRefObject
       <PredictReveal
         id="kin-ik-elbow"
         question="From the first scenario’s guess, Newton–Raphson reaches solution A ($\theta_2 > 0$). Keep the target, but start from the mirror-image guess ($\theta_2 \to -\theta_2$). Where does it end up?"
-        options={['At solution B: the other elbow', 'At A again: the target decides the answer', 'Nowhere: it oscillates between A and B']}
-        answer={0}
+        options={['At A again: the target decides the answer', 'At solution B: the other elbow', 'Nowhere: it oscillates between A and B']}
+        answer={1}
         explain="Each step only uses the slope of the arm **at the current guess**, so Newton–Raphson slides into the solution whose basin it starts in. A guess bent the other way sits in B’s basin (orange) and converges to the other elbow. The target has two valid answers; the guess picks one. That is why numerical IK needs a good initial guess, e.g. the robot’s current pose."
         tryIt="press Show me and watch the joint-space dot run to B."
         onApply={() => api.current.elbow()}
@@ -963,8 +992,8 @@ const PredictBlock = memo(function PredictBlock({ api }: { api: MutableRefObject
       <PredictReveal
         id="kin-ik-outside"
         question="The target is moved to 1.84 m from the base, beyond the reach $L_1 + L_2$ = 1.7 m. What does $\|e\|$ do as Newton–Raphson iterates?"
-        options={['It never gets below 0.14 m (the gap to the reach circle), so it never converges', 'It falls to the tolerance, only more slowly', 'It falls to zero once the arm is fully stretched']}
-        answer={0}
+        options={['It falls to the tolerance, only more slowly', 'It falls to zero once the arm is fully stretched', 'It stays above 0.14 m, the gap to the reach circle']}
+        answer={2}
         explain="No joint angles put the tip there, so no solution exists and $\|e\|$ can never drop below $|x_d| - (L_1 + L_2)$ ≈ 0.14 m. Undamped, it does worse than stall: every time the arm nearly straightens, $\det J \to 0$ and the next step is thrown far away, so the error thrashes. With $\lambda$ ≈ 0.3 m it settles, stretched straight towards the target, at that floor (2022 Q4: a redundant arm still has **no** solution out of reach)."
         tryIt="press Show me, then drag λ up to 0.3 m and compare the two error curves."
         onApply={() => api.current.outside()}
@@ -972,7 +1001,7 @@ const PredictBlock = memo(function PredictBlock({ api }: { api: MutableRefObject
       <PredictReveal
         id="kin-ik-stretch"
         question="The guess is almost straight: $\theta_2$ = 0.03 rad, so $\det J = L_1L_2\sin\theta_2 \approx$ 0.021 m². The target is inside the workspace and $\lambda = 0$. How big is the first step $\Delta\theta = J^{-1}e$?"
-        options={['Huge: tens of radians, the joints spin round several times', 'About right: it lands near the solution', 'Tiny: the arm barely moves']}
+        options={['Huge: tens of radians', 'About right: it lands near the solution', 'Tiny: the arm barely moves']}
         answer={0}
         explain="$J^{-1} = \frac{1}{\det J}(\ldots)$, and $1/\det J \approx 48$ m⁻². The error has a component along the arm (the target is nearer the base than the straight tip), which a straight arm can hardly produce, so the step is enormous: here $\|\Delta\theta\| \approx 52$ rad. Exactly at $\theta_2 = 0$ that direction is impossible; a singularity is where the Jacobian loses rank (2022 Q21). It converges afterwards only by luck."
         tryIt="press Show me: read Δθ in the numbers panel and watch the dotted tip path spiral."
@@ -981,8 +1010,8 @@ const PredictBlock = memo(function PredictBlock({ api }: { api: MutableRefObject
       <PredictReveal
         id="kin-ik-damp"
         question="Same nearly straight start, but now with damping $\lambda$ = 0.2 m: $\Delta\theta = J^T(JJ^T + \lambda^2 I)^{-1}e$. Compared with $\lambda = 0$…"
-        options={['The first step is small and sensible, and it converges smoothly', 'Every step is exactly the same as before', 'It can no longer converge at all']}
-        answer={0}
+        options={['Every step is exactly the same as before', 'It can no longer converge at all', 'The steps stay small and it converges smoothly']}
+        answer={2}
         explain="The $\lambda^2 I$ term keeps $JJ^T + \lambda^2 I$ invertible, so the step stays small when $\det J$ is tiny: $\|\Delta\theta\| \approx 0.21$ rad instead of 52. Away from singularities $\lambda$ barely matters. The price: near the solution damped steps fall slightly short, so the last iterations are slower (compare the solid and dashed error curves)."
         tryIt="press Show me: λ = 0.2 m (solid) against λ = 0 (dashed) in the error plot."
         onApply={() => api.current.damp()}
@@ -990,8 +1019,8 @@ const PredictBlock = memo(function PredictBlock({ api }: { api: MutableRefObject
       <PredictReveal
         id="kin-ik-redundant"
         question="A planar 3-link arm must put its **tip** (2 coordinates) on a reachable target. How many joint configurations do it?"
-        options={['Infinitely many: a whole curve of them', 'Two, like the 2-link arm (elbow up, elbow down)', 'Exactly one']}
-        answer={0}
+        options={['Two, like the 2-link arm (elbow up, elbow down)', 'Infinitely many: a whole curve of them', 'Exactly one']}
+        answer={1}
         explain="Three joints, two equations: one degree of freedom is left over, so the solutions form a curve (self-motion: the arm can move while the tip stays put). Newton–Raphson with the pseudoinverse lands on whichever point of that curve is nearest its guess. Any redundant arm has infinitely many solutions inside its workspace (2022 Q18), and none outside it (2022 Q4)."
         tryIt="press Show me: the faint arms all reach the target; drag the guess and watch NR land on a different one."
         onApply={() => api.current.redundant()}

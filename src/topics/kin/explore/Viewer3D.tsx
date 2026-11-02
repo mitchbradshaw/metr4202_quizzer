@@ -3,7 +3,7 @@
 // driving the space-form PoE, {s} and {b} triads, every screw axis drawn as a line through q along ω, and a
 // panel with S_i = (ω_i, v_i) for the selected joint, symbolic and numeric. q can slide along its axis and ω can
 // be flipped, so "any q on the axis gives the same v" and "flip ω, flip v" are seen, not just stated.
-import { memo, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import type { ExploreItem } from '../../../engine/types';
 import { armM, armScrewsS, fkSpace, linVecEval, linNeg, type ArmSpec, type LinVec, type Vec3 } from '../../../core/kin';
 import { Button, Callout, LinkButton, More, Segmented, Slider, Toggle } from '../../../ui/kit';
@@ -11,8 +11,8 @@ import { PredictReveal } from '../../../ui/PredictReveal';
 import { Rich, TeX } from '../../../ui/Rich';
 import { href } from '../../../app/router';
 
-import { AxisLegend, ArmPicker, Kin3DView, ViewBar, ease, triad, triadLabels, useArmChoice, useTween, type ArmRenderer, type Extra, type Label, type ViewMode } from './kin3dScene';
-import { DEG, SHORTCUT_TEX, armBounds, axisSpan, linVecTeXs, matTeX, qShift, readJoint, shortcutV, signedAxisOf, signedAxisTeX, valuesText, vecNumTeX } from './kin3dMath';
+import { AxisLegend, ArmPicker, Kin3DView, ViewBar, ease, revealView, triad, triadLabels, useArmChoice, useTween, type ArmRenderer, type Extra, type Label, type ViewMode } from './kin3dScene';
+import { DEG, armBounds, axisSpan, axisTagAt, linVecTeXs, matTeX, qShift, readJoint, shortcutNoteTeX, shortcutV, signedAxisTeX, tidyT, triadTips, valuesText, vecNumTeX } from './kin3dMath';
 
 export const meta: Omit<ExploreItem, 'component'> = {
   id: 'viewer',
@@ -36,14 +36,16 @@ export default function Viewer3D() {
   const choice = useArmChoice('rprr-2023');
   const [mode, setMode] = useState<ViewMode>('exam');
   const api = useRef<ViewerApi>({});
+  const root = useRef<HTMLDivElement>(null);
+  const reveal = useCallback(() => revealView(root.current), []);
   return (
-    <div className="kin3d">
+    <div className="kin3d" ref={root}>
       <div className="kin3d-toolbar">
         <ArmPicker choice={choice} />
         <span className="kin3d-sub">{choice.arm.source}</span>
       </div>
       <ViewerInner key={choice.arm.id} arm={choice.arm} vals={choice.vals} mode={mode} setMode={setMode} api={api} />
-      <PredictBlock api={api} />
+      <PredictBlock api={api} reveal={reveal} />
       <More label="How to read a screw axis off the exam figure (summary notes §6)">
         <Rich
           text={`1. **Fix {s}.** Note which arrow points out of the page: on these figures it is drawn diagonally (down-left), so a diagonal arrow means into or out of the page, not "sideways".
@@ -83,7 +85,21 @@ function ViewerInner({ arm, vals, mode, setMode, api }: { arm: ArmSpec; vals: Re
   const S = useMemo(() => armScrewsS(arm, vals), [arm, vals]);
   const T = useMemo(() => fkSpace(M, S, theta), [M, S, theta]);
   const reads = useMemo(() => arm.joints.map((_, i) => readJoint(arm, i, 's')), [arm]);
+  /** Where each revolute joint's q starts on its axis: at the joint, minus any plain-number drawing offset along it. */
+  const off = useMemo(() => reads.map((rd) => (rd.type === 'R' ? tidyT(rd.q, rd.dir) : 0)), [reads]);
   const sj = reads[sel];
+  /** Pick a joint (the slide t belongs to one joint, so it restarts at 0). Stable, for the memoised table. */
+  const selRef = useRef(sel);
+  selRef.current = sel;
+  const stopRef = useRef(tween.stop);
+  stopRef.current = tween.stop;
+  const choose = useCallback((i: number) => {
+    if (i !== selRef.current) {
+      stopRef.current();
+      setQt(0);
+    }
+    setSel(i);
+  }, []);
 
   // --- scene
   useEffect(() => {
@@ -106,12 +122,14 @@ function ViewerInner({ arm, vals, mode, setMode, api }: { arm: ArmSpec; vals: Re
     const p = linVecEval(arm.p, vals);
     ex.push(...triad([0, 0, 0], [[1, 0, 0], [0, 1, 0], [0, 0, 1]], tl, 0), ...triad(p, arm.R, tl, n));
     lb.push(...triadLabels('s', [0, 0, 0], [[1, 0, 0], [0, 1, 0], [0, 0, 1]], tl, 's'), ...triadLabels('b', p, arm.R, tl, 'b', n));
+    const tips = triadTips(arm, vals, tl);
     if (axes !== 'off') {
       arm.joints.forEach((j, i) => {
         const on = i === sel;
         const w: Vec3 = flips[i] ? [-j.axis[0], -j.axis[1], -j.axis[2]] : j.axis;
         const q0 = linVecEval(j.q, vals);
-        const q: Vec3 = on ? [q0[0] + qt * j.axis[0], q0[1] + qt * j.axis[1], q0[2] + qt * j.axis[2]] : q0;
+        const t = off[i] + (on ? qt : 0);
+        const q: Vec3 = [q0[0] + t * j.axis[0], q0[1] + t * j.axis[1], q0[2] + t * j.axis[2]];
         const span = axisSpan(bounds.pts, q, w, 0.22 * u);
         const bodies = axes === 'now' ? [i, 0] : [0];
         bodies.forEach((body, k) => {
@@ -123,8 +141,7 @@ function ViewerInner({ arm, vals, mode, setMode, api }: { arm: ArmSpec; vals: Re
             if (!ghost) ex.push({ kind: 'point', at: q, color: '--accent', opacity: on ? 1 : 0.55, r: (on ? 0.026 : 0.018) * u, body });
           } else ex.push({ kind: 'arrow', from: q, dir: w, len: 0.42 * u, color: '--accent', opacity: op, body, r: 0.008 * u });
           if (!ghost) {
-            const reach = j.type === 'R' ? span[1] + 0.075 * u : 0.42 * u;
-            const tip: Vec3 = [q[0] + w[0] * reach, q[1] + w[1] * reach, q[2] + w[2] * reach];
+            const tip = j.type === 'R' ? axisTagAt(q, w, span, tips, 0.14 * u, 0.075 * u) : axisTagAt(q, w, [0, 0.42 * u], tips, 0.14 * u, 0);
             lb.push({ key: `S${i}`, tex: `S_{${i + 1}}`, at: tip, from: q, body, cls: on ? 'is-tag' : 'is-small is-dim', color: 'var(--accent)' });
           }
         });
@@ -137,7 +154,7 @@ function ViewerInner({ arm, vals, mode, setMode, api }: { arm: ArmSpec; vals: Re
     }
     r.setExtras(ex);
     r.setLabels(lb);
-  }, [r, arm, vals, n, u, bounds, sel, axes, flips, qt]);
+  }, [r, arm, vals, n, u, bounds, sel, axes, flips, qt, off]);
 
   // --- interactions for the predictions
   const firstRevoluteWithV = () => {
@@ -146,21 +163,21 @@ function ViewerInner({ arm, vals, mode, setMode, api }: { arm: ArmSpec; vals: Re
   };
   api.current.slideQ = () => {
     const i = reads[sel]?.type === 'R' ? sel : firstRevoluteWithV();
-    setSel(i);
+    choose(i);
     if (axes === 'off') setAxes('home');
     const A = 0.6 * u;
     tween.run(2600, (t) => setQt(Math.round((A * Math.sin(2 * Math.PI * t)) / (A / 14)) * (A / 14)), () => setQt(0));
   };
   api.current.flip = () => {
     const i = reads[sel]?.type === 'R' && reads[sel].v.some((c) => Object.keys(c).length > 0) ? sel : firstRevoluteWithV();
-    setSel(i);
+    choose(i);
     if (axes === 'off') setAxes('home');
     setFlips((f) => f.map((x, k) => (k === i ? !x : x)));
   };
   api.current.turnFirst = () => {
     const i = Math.max(0, reads.findIndex((rd) => rd.type === 'R'));
     setAxes('now');
-    setSel(Math.min(n - 1, i + 1));
+    choose(Math.min(n - 1, i + 1));
     const from = theta.slice();
     const to = theta.slice();
     to[i] = Math.PI / 2;
@@ -169,10 +186,11 @@ function ViewerInner({ arm, vals, mode, setMode, api }: { arm: ArmSpec; vals: Re
 
   // --- panel maths for the selected joint
   const w = flips[sel] ? (sj.w.map((x) => -x) as Vec3) : sj.w;
-  const qSel: LinVec = sj.type === 'R' ? qShift(sj.q, sj.dir, qt) : sj.q;
+  const qSel: LinVec = sj.type === 'R' ? qShift(sj.q, sj.dir, off[sel] + qt) : sj.q;
   const vSel: LinVec = sj.type === 'R' ? shortcutV(w, qSel) : (sj.v.map((c) => (flips[sel] ? linNeg(c) : c)) as LinVec);
-  const ax = signedAxisOf(sj.dir);
-  const sideNote = sj.type === 'R' && ax ? `\\omega = ${flips[sel] ? '-' : ''}\\hat{${'xyz'[ax.axis]}}:\\ v = ${flips[sel] !== ax.sign < 0 ? '-' : ''}${SHORTCUT_TEX[ax.axis]}` : '';
+  // the shortcut row with the sign of ω as shown (the joint's own axis sign, flipped when the student flips it)
+  const sideNote = sj.type === 'R' ? shortcutNoteTeX(sj.dir, flips[sel]) : '';
+  const atJoint = Math.abs(off[sel] + qt) < 1e-9;
 
   const jointLabel = (i: number) => (arm.joints[i].type === 'R' ? `\\theta_{${i + 1}}` : `d_{${i + 1}}`);
   const hint = mode === 'exam' ? 'Exam view: out of the page is drawn down-left, like the paper. Switch to Orbit to rotate.' : 'Drag to rotate · wheel to zoom · right-drag to pan';
@@ -208,7 +226,7 @@ function ViewerInner({ arm, vals, mode, setMode, api }: { arm: ArmSpec; vals: Re
           <section className="kin3d-panel" aria-label="Joint values">
             <h4>Joints (click one to inspect its screw axis)</h4>
             {arm.joints.map((j, i) => (
-              <div key={i} className={`kin3d-joint ${i === sel ? 'is-on' : ''}`} onPointerDown={() => setSel(i)} onFocus={() => setSel(i)}>
+              <div key={i} className={`kin3d-joint ${i === sel ? 'is-on' : ''}`} onPointerDown={() => choose(i)} onFocus={() => choose(i)}>
                 {j.type === 'R' ? (
                   <Slider
                     label={`joint ${i + 1} (revolute)`}
@@ -325,9 +343,14 @@ function ViewerInner({ arm, vals, mode, setMode, api }: { arm: ArmSpec; vals: Re
                 <Button size="sm" onClick={() => setFlips((f) => f.map((x, k) => (k === sel ? !x : x)))} title="Read the rotation arrow the other way: ω → −ω">
                   Flip ω{sel + 1}
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => (tween.stop(), setQt(0))} disabled={qt === 0}>
+                <Button size="sm" variant="ghost" onClick={() => (tween.stop(), setQt(-off[sel]))} disabled={atJoint}>
                   q back to the joint
                 </Button>
+                {off[sel] !== 0 && Math.abs(qt) > 1e-9 && (
+                  <Button size="sm" variant="ghost" onClick={() => (tween.stop(), setQt(0))} title="The point of this axis written with the figure's lengths only">
+                    q with no drawing offset
+                  </Button>
+                )}
               </div>
               {flips[sel] && (
                 <Callout kind="warn" title="ω flipped">
@@ -349,7 +372,7 @@ function ViewerInner({ arm, vals, mode, setMode, api }: { arm: ArmSpec; vals: Re
 
         <section className="kin3d-panel" aria-label="Screw axes at the zero configuration">
           <h4>All screw axes in {'{s}'} at θ = 0</h4>
-          <ScrewList arm={arm} vals={vals} sel={sel} setSel={setSel} flips={flips} />
+          <ScrewList arm={arm} vals={vals} sel={sel} setSel={choose} flips={flips} />
           {showT && (
             <div style={{ marginTop: 10 }}>
               <TeX display>{`T(\\theta) = e^{[S_1]\\theta_1}\\cdots e^{[S_{${n}}]\\theta_{${n}}} M = ${matTeX(T)}`}</TeX>
@@ -416,35 +439,35 @@ const ScrewList = memo(function ScrewList({ arm, vals, sel, setSel, flips }: { a
   );
 });
 
-const PredictBlock = memo(function PredictBlock({ api }: { api: MutableRefObject<ViewerApi> }) {
+const PredictBlock = memo(function PredictBlock({ api, reveal }: { api: MutableRefObject<ViewerApi>; reveal: () => void }) {
   return (
     <div className="kin3d-predicts">
       <PredictReveal
         id="kin-viewer-qslide"
         question="Slide the point $q$ along the selected joint's axis, a long way in either direction. What happens to $v = -\omega \times q$?"
-        options={['Nothing: $v$ stays exactly the same', 'It grows as $q$ moves away from the joint', 'It flips sign when $q$ passes the joint', 'It becomes zero when $q$ is at the joint']}
-        answer={0}
+        options={['It grows as $q$ moves away from the joint', 'It flips sign when $q$ passes the joint', 'Nothing: $v$ stays exactly the same', 'It becomes zero when $q$ is at the joint']}
+        answer={2}
         explain="Moving $q$ to $q + t\omega$ changes $v$ by $-\omega \times t\omega = 0$, because a vector crossed with itself is zero. Only the axis *line* matters, not which point on it you picked. That is why the worked solutions pick whichever $q$ has the easiest numbers (2025 Q30 joint 5 uses $(0, 0, L_1)$ instead of the joint's own position)."
         tryIt="press Show me: q slides up and down the axis while the v readout stays put."
-        onApply={() => api.current.slideQ?.()}
+        onApply={() => (reveal(), api.current.slideQ?.())}
       />
       <PredictReveal
         id="kin-viewer-flip"
         question="You read a joint's rotation arrow the other way round, so you write $-\omega$ instead of $\omega$ (same point $q$). What happens to $v$?"
-        options={['$v$ flips sign too', '$v$ is unchanged: it depends only on $q$', '$v$ becomes zero', 'Only the component of $v$ along $\\omega$ flips']}
-        answer={0}
+        options={['$v$ is unchanged: it depends only on $q$', '$v$ flips sign too', '$v$ becomes zero', 'Only the component of $v$ along $\\omega$ flips']}
+        answer={1}
         explain="$v = -\omega \times q$ is linear in $\omega$, so $-\omega$ gives $-v$: the whole screw axis $S$ flips, and the joint angle is then measured the other way round. The notes' advice follows: flipping $\omega$ flips $v$, so if you misread an arrow but your working is consistent you lose less (2023 and 2024 worked solutions)."
         tryIt="press Show me: the axis arrow and the rotation arc reverse, and v changes sign in the panel."
-        onApply={() => api.current.flip?.()}
+        onApply={() => (reveal(), api.current.flip?.())}
       />
       <PredictReveal
         id="kin-viewer-home"
         question="Turn the first revolute joint by $90^\circ$. The joints after it move in space. Do their entries $S_2, \dots, S_n$ in the screw table change?"
-        options={['No: the table is always read at the zero configuration', 'Yes: each $S_i$ must be recomputed at the new pose', 'Only $\\omega_i$ changes; $v_i$ stays', 'Only the prismatic joints change']}
-        answer={0}
+        options={['Yes: each $S_i$ must be recomputed at the new pose', 'Only $\\omega_i$ changes; $v_i$ stays the same', 'Only the prismatic joints change', 'No: the table is read at $\\theta = 0$']}
+        answer={3}
         explain="The space-form PoE $T(\theta) = e^{[S_1]\theta_1} \cdots e^{[S_n]\theta_n} M$ uses the screw axes **at $\theta = 0$**. The joints' current axes do move (solid lines, versus the faint ones at $\theta = 0$), and those moving axes are the columns of the space Jacobian, but the table never changes: the factor $e^{[S_1]\theta_1}$ carries every later joint into place."
         tryIt="press Show me: the first joint turns 90° with the axes shown where the joints are now; the faint lines are the table's axes."
-        onApply={() => api.current.turnFirst?.()}
+        onApply={() => (reveal(), api.current.turnFirst?.())}
       />
     </div>
   );

@@ -26,10 +26,18 @@ import {
 import type { Rng } from '../../../engine/rng';
 import { drawValues, pointSegDist, projectUnit, segSegDist } from './kinfigLayout';
 
+/**
+ * Lengths for drawing (and for numeric parts) where the core values crowd the figure: the review deck's arm has
+ * three short links after a long L3, which packs joints 4–6 into a corner.
+ */
+const FIG_VALUES: Record<string, Record<string, number>> = {
+  'review-6dof': { L1: 0.6, L2: 0.4, L3: 0.6, L4: 0.45, L5: 0.4, L6: 0.35 },
+};
+
 export function examArm(id: string): ArmSpec {
   const a = EXAM_ARMS.find((x) => x.id === id);
   if (!a) throw new Error(`no exam arm ${id}`);
-  return a;
+  return FIG_VALUES[id] ? { ...a, values: { ...FIG_VALUES[id] } } : a;
 }
 
 /** Where each exam robot comes from, for prompts and citations. */
@@ -218,11 +226,11 @@ export function screenWord(d: Vec3, view: ArmSpec['view']): string {
   if (dot3(d, view.right) < -0.5) return 'left';
   if (dot3(d, view.up) > 0.5) return 'up';
   if (dot3(d, view.up) < -0.5) return 'down';
-  if (dot3(d, view.out) > 0.5) return 'out of the page (drawn down-left)';
-  return 'into the page (drawn up-right)';
+  if (dot3(d, view.out) > 0.5) return 'down-left, out of the page';
+  return 'up-right, into the page';
 }
 
-/** "x̂_s points out of the page (drawn down-left), ŷ_s right, ẑ_s up" for this figure. */
+/** "x̂_s points down-left, out of the page, ŷ_s right, ẑ_s up" for this figure. */
 export function sAxesSentence(view: ArmSpec['view'], sub = 's'): string {
   return ['x', 'y', 'z']
     .map((n, k) => {
@@ -230,7 +238,7 @@ export function sAxesSentence(view: ArmSpec['view'], sub = 's'): string {
       e[k] = 1;
       return `$\\hat ${n}_${sub}$ points ${screenWord(e, view)}`;
     })
-    .join(', ');
+    .join('; ');
 }
 
 export function bmatrix(rows: string[][]): string {

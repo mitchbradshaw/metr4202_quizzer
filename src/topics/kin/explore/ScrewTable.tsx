@@ -10,7 +10,7 @@ import { Button, Callout, LinkButton, More, Segmented, Slider } from '../../../u
 import { PredictReveal } from '../../../ui/PredictReveal';
 import { Rich, TeX } from '../../../ui/Rich';
 import { href } from '../../../app/router';
-import { AxisLegend, ArmPicker, Kin3DView, ViewBar, ease, triad, triadLabels, useArmChoice, useTween, type ArmRenderer, type Extra, type Label, type ViewMode } from './kin3dScene';
+import { AxisLegend, ArmPicker, Kin3DView, ViewBar, revealView, ease, triad, triadLabels, useArmChoice, useTween, type ArmRenderer, type Extra, type Label, type ViewMode } from './kin3dScene';
 import {
   AXIS_VARS,
   SHORTCUT_TEX,
@@ -27,6 +27,7 @@ import {
   signedAxisOf,
   signedAxisTeX,
   tToFoot,
+  tidyT,
   valuesText,
   type CellState,
   type Frame,
@@ -73,7 +74,9 @@ export default function ScrewTable() {
     lastArm.current = choice.arm.id;
     if (!pending.current) setFrame(choice.arm.askedIn);
   }, [choice.arm]);
+  const root = useRef<HTMLDivElement>(null);
   const apply: Apply = useCallback((armId, fr, fn) => {
+    revealView(root.current);
     const { choice: c, frame: f } = state.current;
     if (c.id === armId && f === fr) fn(api.current);
     else {
@@ -84,7 +87,7 @@ export default function ScrewTable() {
     }
   }, []);
   return (
-    <div className="kin3d">
+    <div className="kin3d" ref={root}>
       <div className="kin3d-toolbar">
         <ArmPicker choice={choice} />
         <Segmented
@@ -144,7 +147,14 @@ function ScrewInner({
   const [r, setR] = useState<ArmRenderer | null>(null);
   const [sel, setSel] = useState(0);
   const [picks, setPicks] = useState<Pick[]>(() => arm.joints.map(() => 'none'));
-  const [ts, setTs] = useState<number[]>(() => arm.joints.map(() => 0));
+  // q starts at the joint, less any plain-number drawing offset along its own axis (the review deck's joint 3)
+  const [ts, setTs] = useState<number[]>(() =>
+    arm.joints.map((j, i) => {
+      if (j.type !== 'R') return 0;
+      const rd = readJoint(arm, i, frame);
+      return tidyT(rd.q, rd.dir);
+    })
+  );
   const [typed, setTyped] = useState<string[][]>(() => arm.joints.map(() => ['', '', '', '', '', '']));
   const [checked, setChecked] = useState(false);
   const [hover, setHover] = useState(false);
@@ -296,8 +306,10 @@ function ScrewInner({
     if (c.every((s) => s === 'ok')) return 'ok';
     const wOk = c.slice(0, 3).every((s) => s === 'ok');
     const allOkOrNeg = c.every((s) => s === 'ok' || s === 'neg');
-    if (allOkOrNeg && c.slice(0, 3).some((s) => s === 'neg') && c.slice(3).every((s, k) => s === 'neg' || Object.keys(answers[i][3 + k]).length === 0)) return 'flip';
-    if (wOk && c.slice(3).every((s) => s === 'ok' || s === 'neg') && c.slice(3).some((s) => s === 'neg')) return 'cross';
+    // every nonzero v entry negated (zero entries read as ok either way)
+    const vNegOrZero = c.slice(3).every((s, k) => s === 'neg' || Object.keys(answers[i][3 + k]).length === 0);
+    if (allOkOrNeg && c.slice(0, 3).some((s) => s === 'neg') && vNegOrZero) return 'flip';
+    if (wOk && vNegOrZero && c.slice(3).some((s) => s === 'neg')) return 'cross';
     return wOk ? 'v' : 'w';
   };
   const setCell = (i: number, k: number, v: string) => setTyped((tt) => tt.map((row, a) => (a === i ? row.map((x, b) => (b === k ? v : x)) : row)));
@@ -396,7 +408,15 @@ function ScrewInner({
                 {jd.type === 'R' && pickedW && signedAxisOf(pickedW) && (
                   <ShortcutTable axis={signedAxisOf(pickedW)!.axis} neg={signedAxisOf(pickedW)!.sign < 0} />
                 )}
-                <TeX display>{`v_{${sel + 1}} = ${jd.type === 'R' ? `-${wTeX} \\times ${linVecTeXs(qF)} = ${shortcutWorkTeX(pickedW!, qF)} = ` : ''}${linVecTeXs(vTry)}`}</TeX>
+                <TeX display>
+                  {jd.type === 'R'
+                    ? `\\begin{aligned} v_{${sel + 1}} &= -${wTeX} \\times ${linVecTeXs(qF)} \\\\ &= ${(() => {
+                        const work = shortcutWorkTeX(pickedW!, qF);
+                        const res = linVecTeXs(vTry);
+                        return work && work !== res ? `${work} = ${res}` : res;
+                      })()} \\end{aligned}`
+                    : `v_{${sel + 1}} = ${linVecTeXs(vTry)}`}
+                </TeX>
                 {jd.type === 'R' && (
                   <div className="kin3d-row">
                     <Button size="sm" onClick={() => setPicks((ps) => ps.map((x, k) => (k === sel && x !== 'none' && x !== '0' ? (x.startsWith('+') ? '-' : '+') + x.slice(1) : x) as Pick))}>
@@ -460,18 +480,12 @@ function ScrewInner({
                     {i + 1}
                     <span className="kin3d-sub"> {j.type}</span>
                   </td>
-                  {[0, 1].map((part) => (
-                    <td key={part} style={part === 1 ? undefined : undefined}>
-                      {part === 1 && (
-                        <span style={{ display: 'none' }} />
-                      )}
-                      {part === 0 ? (
-                        <Cells i={i} base={0} narrow typed={typed[i]} cells={cells[i]} checked={checked} setCell={setCell} sym="\omega" />
-                      ) : (
-                        <TeX>{rd.type === 'R' ? linVecTeXs(qShift(rd.q, rd.dir, ts[i])) : '\\text{—}'}</TeX>
-                      )}
-                    </td>
-                  ))}
+                  <td>
+                    <Cells i={i} base={0} narrow typed={typed[i]} cells={cells[i]} checked={checked} setCell={setCell} sym="\omega" />
+                  </td>
+                  <td>
+                    <TeX>{rd.type === 'R' ? linVecTeXs(qShift(rd.q, rd.dir, ts[i])) : '\\text{—}'}</TeX>
+                  </td>
                   <td>
                     <Cells i={i} base={3} typed={typed[i]} cells={cells[i]} checked={checked} setCell={setCell} sym="v" />
                   </td>
@@ -517,7 +531,7 @@ function Cells({ i, base, typed, cells, checked, setCell, sym, narrow }: { i: nu
         return (
           <span key={k} className="kin3d-cells">
             <input
-              className={`kin3d-cell ${narrow ? 'is-narrow' : ''} ${checked && s !== 'empty' ? `is-${s}` : ''}`}
+              className={`kin3d-cell ${narrow ? 'is-narrow' : 'is-wide'} ${checked && s !== 'empty' ? `is-${s}` : ''}`}
               value={typed[base + k]}
               aria-label={`${sym === 'v' ? 'v' : 'omega'} ${i + 1}, ${'xyz'[k]} component`}
               spellCheck={false}
@@ -564,8 +578,8 @@ const PredictBlock = memo(function PredictBlock({ apply }: { apply: Apply }) {
       <PredictReveal
         id="kin-screws-simplest"
         question="2025 arm, joint 5: $\omega_5 = (1, 0, 0)$ and the joint sits at the tip, $(L_2 + L_3 + L_4,\ 0,\ L_1)$. If you slide $q_5$ along the axis to $(0, 0, L_1)$, what is $v_5$?"
-        options={['$(0,\\ L_1,\\ 0)$, the same as with the joint position', '$(0,\\ L_1,\\ -(L_2+L_3+L_4))$', '$(0,\\ 0,\\ 0)$: the new $q$ makes $v$ vanish', '$(L_2+L_3+L_4,\\ L_1,\\ 0)$']}
-        answer={0}
+        options={['$(0,\\ L_1,\\ -(L_2+L_3+L_4))$', '$(0,\\ 0,\\ 0)$: the new $q$ makes $v$ vanish', '$(0,\\ L_1,\\ 0)$: unchanged', '$(L_2+L_3+L_4,\\ L_1,\\ 0)$']}
+        answer={2}
         explain="With $\omega = \hat x$, the shortcut is $v = (0,\ q_z,\ -q_y)$: $q_x$ never appears, so moving $q$ along $\hat x$ cannot change $v$. Both points give $v_5 = (0, L_1, 0)$. Choosing the point with a zero along the axis just saves writing (the 2025 worked solution does exactly this)."
         tryIt="press Show me: q slides from the tip to the point nearest the origin while v stays (0, L₁, 0)."
         onApply={() => apply('rrrrr-2025', 's', (a) => a.simplest?.())}
@@ -573,8 +587,8 @@ const PredictBlock = memo(function PredictBlock({ apply }: { apply: Apply }) {
       <PredictReveal
         id="kin-screws-flip"
         question="2023 arm, joint 3: the answer is $\omega_3 = (1, 0, 0)$, $q_3 = (0, 0, L_1)$, $v_3 = (0, L_1, 0)$. You misread the arrow and write $\omega_3 = (-1, 0, 0)$. What $v_3$ do you get?"
-        options={['$(0,\\ -L_1,\\ 0)$', '$(0,\\ L_1,\\ 0)$', '$(0,\\ 0,\\ L_1)$', '$(-L_1,\\ 0,\\ 0)$']}
-        answer={0}
+        options={['$(0,\\ L_1,\\ 0)$', '$(0,\\ 0,\\ L_1)$', '$(-L_1,\\ 0,\\ 0)$', '$(0,\\ -L_1,\\ 0)$']}
+        answer={3}
         explain="$v = -\omega \times q$ is linear in $\omega$, so negating $\omega$ negates $v$: $(0, -L_1, 0)$. The whole screw axis is reversed, which describes the same joint with $\theta_3$ counted the other way, so a consistent table loses little (2023 worked solution)."
         tryIt="press Show me: ω₃ is set to −x̂ₛ and the shortcut row is negated."
         onApply={() => apply('rprr-2023', 's', (a) => a.flip?.())}
@@ -582,8 +596,8 @@ const PredictBlock = memo(function PredictBlock({ apply }: { apply: Apply }) {
       <PredictReveal
         id="kin-screws-body"
         question="Review deck robot, screw axes **in {b}**. {b} has the same orientation as {0} and its origin is at $(L_1,\ L_3+L_4,\ -L_5-L_6)$. Joint 1 turns about $\hat x$ through the {0} origin. What is $v_1$ in {b}?"
-        options={['$(0,\\ L_5+L_6,\\ L_3+L_4)$', '$(0,\\ 0,\\ 0)$: the axis passes through the {0} origin', '$(0,\\ -L_5-L_6,\\ -L_3-L_4)$', '$(L_1,\\ L_5+L_6,\\ L_3+L_4)$']}
-        answer={0}
+        options={['$(0,\\ 0,\\ 0)$: the axis passes through the {0} origin', '$(0,\\ L_5+L_6,\\ L_3+L_4)$', '$(0,\\ -L_5-L_6,\\ -L_3-L_4)$', '$(L_1,\\ L_5+L_6,\\ L_3+L_4)$']}
+        answer={1}
         explain="In {b}, $q$ is measured from the {b} origin: the {0} origin is at $q_1 = (-L_1,\ -L_3-L_4,\ L_5+L_6)$ from {b} (the deck writes $(0, -L_3-L_4, L_5+L_6)$, another point on the same axis). With $\omega_1 = \hat x$: $v_1 = (0,\ q_z,\ -q_y) = (0,\ L_5+L_6,\ L_3+L_4)$, as on slide 20. $v = 0$ is the {s} answer, where the axis does pass through the origin."
         tryIt="press Show me: the table switches to {b}; the dashed q now starts at the {b} origin."
         onApply={() => apply('review-6dof', 'b', (a) => a.body?.())}
@@ -591,8 +605,8 @@ const PredictBlock = memo(function PredictBlock({ apply }: { apply: Apply }) {
       <PredictReveal
         id="kin-screws-prismatic"
         question="2023 arm, joint 2 is prismatic and slides straight up. What is its screw axis $S_2 = (\omega_2, v_2)$?"
-        options={['$\\omega_2 = (0, 0, 0)$, $v_2 = (0, 0, 1)$', '$\\omega_2 = (0, 0, 1)$, $v_2 = (0, 0, 0)$', '$\\omega_2 = (0, 0, 1)$, $v_2 = (0, 0, 1)$', '$\\omega_2 = (0, 0, 0)$, $v_2 = (0, 0, 0.5)$: where the joint is']}
-        answer={0}
+        options={['$\\omega_2 = (0, 0, 1)$, $v_2 = (0, 0, 0)$', '$\\omega_2 = (0, 0, 1)$, $v_2 = (0, 0, 1)$', '$\\omega_2 = (0, 0, 0)$, $v_2 = (0, 0, 1)$', '$\\omega_2 = (0, 0, 0)$, $v_2 = (0, 0, 0.5)$: where the joint is']}
+        answer={2}
         explain="A sliding joint has no rotation, so $\omega_2 = 0$, and $v_2$ is the **unit** direction of travel, $+\hat z_s$. Its position does not matter: a translation has no axis line, so there is no $q$ (the table shows —)."
         tryIt="press Show me: joint 2 is selected and slides up and back along v₂."
         onApply={() => apply('rprr-2023', 's', (a) => a.prismatic?.())}

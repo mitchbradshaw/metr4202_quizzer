@@ -2043,3 +2043,46 @@ a.stat:hover {
 .stepper-pos {
   margin-left: 0.25rem;
 }
+/* Long problems: the figure stays in view next to the parts (SolveInstance.layout = 'side'). */
+.solve-side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+.solve-side > .solve-figure {
+  position: sticky;
+  top: 106px;
+  max-height: calc(100vh - 120px);
+  overflow: auto;
+}
+.solve-side > .parts {
+  margin-top: 0;
+}
+/* Short choice options in a grid (ChoicePart.compact). */
+.options.options-compact {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+}
+/* Stacked slider (label above the track) for long TeX labels in narrow panels. */
+.slider.is-stacked {
+  grid-template-columns: minmax(90px, 1fr) auto;
+}
+.slider.is-stacked .slider-label {
+  grid-column: 1 / -1;
+}
+/* Shared decimal-friendly number field. */
+.num-field {
+  width: 6.5em;
+  font: inherit;
+  font-family: var(--mono, ui-monospace, monospace);
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+.num-field.is-invalid {
+  border-color: var(--bad);
+}

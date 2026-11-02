@@ -33,7 +33,10 @@ export function checkNumeric(part: NumericPart, raw: string, inputUnit: string =
   const gaps = (part.traps || []).map((t) => Math.abs(t.value - ans) / Math.max(Math.abs(ans), 1e-300)).filter((g) => g > 1e-9);
   const minGap = gaps.length ? Math.min(...gaps) : Infinity;
   const tol = Math.max(0.003, Math.min(part.tol ?? 0.02, minGap / 2));
-  const ok = Math.abs(v - ans) <= Math.max(tol * Math.abs(ans), part.absTol ?? 0);
+  // Likewise an absolute tolerance is capped at half the distance to the nearest trap.
+  const absGaps = (part.traps || []).map((t) => Math.abs(t.value - ans)).filter((g) => g > 1e-12);
+  const absTol = Math.min(part.absTol ?? 0, absGaps.length ? Math.min(...absGaps) / 2 : Infinity);
+  const ok = Math.abs(v - ans) <= Math.max(tol * Math.abs(ans), absTol);
   if (ok) {
     const note =
       freqMode && inputUnit !== part.unit
@@ -173,8 +176,8 @@ export function checkMatrix(part: MatrixPart, raw: string[][]): MatrixVerdict {
       }
     }
     return allOk
-      ? { correct: true, cells, message: 'Correct (mode shapes are compared up to scale and sign).' }
-      : { correct: false, cells, trapId: undefined, message: 'Some columns are not proportional to the true mode shapes. Only ratios matter, but the ratios must match.' };
+      ? { correct: true, cells, message: 'Correct (columns are compared up to scale and sign).' }
+      : { correct: false, cells, trapId: undefined, message: 'Some columns are not proportional to the true ones. Only ratios matter, but the ratios must match.' };
   }
   let allOk = true;
   for (let i = 0; i < A.length; i++)
@@ -195,14 +198,14 @@ export function checkMatrix(part: MatrixPart, raw: string[][]): MatrixVerdict {
   if (square) {
     const symA = A.every((row, i) => row.every((x, j) => Math.abs(x - A[j][i]) <= 1e-9 * s));
     const symV = V.every((row, i) => row.every((x, j) => Math.abs(x - V[j][i]) <= tol * s));
-    if (symA && !symV) return { correct: false, cells, trapId: 'symmetry', message: 'Your matrix is not symmetric. M and K from quadratic forms always are: $K_{ij} = K_{ji}$.' };
+    if (symA && !symV) return { correct: false, cells, trapId: 'symmetry', message: 'Your matrix is not symmetric, but this one must be: entry $(i, j)$ equals entry $(j, i)$.' };
     const diagOk = A.every((_, i) => cells[i][i]);
     if (diagOk && n > 1) {
       const off = (f: number) =>
         A.every((row, i) => row.every((x, j) => i === j || Math.abs(V[i][j] - f * x) <= tol * s));
-      if (off(-1)) return { correct: false, cells, trapId: 'offdiag-sign', message: 'Diagonal right, off-diagonal signs flipped. The coupling sign follows your coordinate directions.' };
+      if (off(-1)) return { correct: false, cells, trapId: 'offdiag-sign', message: 'Diagonal right, off-diagonal signs flipped. Check the positive direction of each axis.' };
       if (off(2) || off(0.5))
-        return { correct: false, cells, trapId: 'offdiag-factor2', message: 'Diagonal right, off-diagonals off by 2. In $V=\\tfrac12 q^TKq$ the cross term appears twice ($K_{12}+K_{21}$).' };
+        return { correct: false, cells, trapId: 'offdiag-factor2', message: 'Diagonal right, off-diagonal entries off by a factor of 2.' };
     }
     if (!symA && matNear(V, A[0].map((_, j) => A.map((r) => r[j])), tol))
       return { correct: false, cells, message: 'You have the transpose. Check rows vs columns.' };

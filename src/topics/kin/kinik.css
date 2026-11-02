@@ -335,3 +335,204 @@
 .kin-ik-onefig {
   max-width: 520px;
 }
+
+/* ---------------------------------------------------------------- Pieper schematics (kinikPieperDraw.tsx) */
+.kin-ik-scene {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.kin-ik-scene .kin-ik-body {
+  fill: var(--surface-2);
+}
+.kin-ik-scene .kin-ik-cap {
+  fill: var(--surface-3);
+}
+.kin-ik-scene .kin-ik-face {
+  fill: var(--surface-2);
+  stroke: var(--text);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+.kin-ik-scene .kin-ik-face.is-top {
+  fill: var(--surface-3);
+}
+.kin-ik-scene .is-ok.kin-ik-body,
+.kin-ik-scene .is-ok.kin-ik-face {
+  fill: var(--ok-soft);
+  stroke: var(--ok);
+}
+.kin-ik-scene .is-ok.kin-ik-cap {
+  fill: var(--ok-soft);
+  stroke: var(--ok);
+}
+.kin-ik-scene .is-bad.kin-ik-body,
+.kin-ik-scene .is-bad.kin-ik-face,
+.kin-ik-scene .is-bad.kin-ik-cap {
+  fill: var(--bad-soft);
+  stroke: var(--bad);
+}
+.kin-ik-scene .kin-ik-grip {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.kin-ik-scene .kin-ik-base {
+  fill: var(--surface-3);
+  stroke: var(--text-2);
+  stroke-width: 1.2;
+}
+.kin-ik-scene .kin-ik-travel {
+  stroke: var(--text);
+  stroke-width: 1.6;
+  fill: none;
+}
+.kin-ik-scene .kin-ik-travel-head {
+  fill: var(--text);
+}
+.kin-ik-scene .kin-ik-axisline.is-ok {
+  stroke: var(--ok);
+  stroke-width: 2.4;
+  stroke-dasharray: none;
+  opacity: 0.85;
+}
+.kin-ik-scene .kin-ik-axisline.is-bad {
+  stroke: var(--bad);
+  stroke-width: 2.2;
+  stroke-dasharray: 8 4;
+  opacity: 0.85;
+}
+.kin-ik-scene .kin-ik-meet {
+  fill: var(--surface);
+  stroke: var(--ok);
+  stroke-width: 2.6;
+}
+.kin-ik-scene .kin-ik-near {
+  fill: var(--surface);
+  stroke: var(--bad);
+  stroke-width: 2.2;
+}
+.kin-ik-scene .kin-ik-gap {
+  stroke: var(--bad);
+  stroke-width: 2.2;
+  stroke-dasharray: 3 3;
+  fill: none;
+}
+.kin-ik-scene .kin-ik-hltext {
+  font: 700 12.5px var(--font);
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3.5px;
+  stroke-linejoin: round;
+}
+.kin-ik-scene .kin-ik-hltext.is-ok {
+  fill: var(--ok);
+}
+.kin-ik-scene .kin-ik-hltext.is-bad {
+  fill: var(--bad);
+}
+.kin-ik-scene .kin-ik-trace {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.8;
+}
+.kin-ik-scene .kin-ik-track {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+.kin-ik-scene .kin-ik-tracktext {
+  font: 700 12px var(--font);
+  fill: var(--accent);
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.kin-ik-scene .kin-ik-plane {
+  fill: var(--accent);
+  fill-opacity: 0.1;
+  stroke: var(--accent);
+  stroke-opacity: 0.5;
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+.kin-ik-scene.is-thumb .kin-ik-body,
+.kin-ik-scene.is-thumb .kin-ik-cap,
+.kin-ik-scene.is-thumb .kin-ik-face {
+  stroke-width: 2.6;
+}
+.kin-ik-scene.is-thumb .kin-ik-link {
+  stroke-width: 5;
+}
+.kin-ik-scene.is-thumb .kin-ik-grip {
+  stroke-width: 3.6;
+}
+.kin-ik-view {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: grab;
+  touch-action: none;
+}
+.kin-ik-view:active {
+  cursor: grabbing;
+}
+.kin-ik-view:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.kin-ik-viewtag {
+  position: absolute;
+  left: 10px;
+  top: 6px;
+  font-size: 0.78rem;
+  color: var(--text-3);
+  pointer-events: none;
+}
+.kin-ik-readout {
+  min-height: 1.4em;
+  font-size: 0.88rem;
+  color: var(--text-2);
+  margin: 6px 0 0;
+}
+.kin-ik-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 8px;
+}
+.kin-ik-controls .slider {
+  flex: 1 1 260px;
+  min-width: 220px;
+}
+.kin-ik-decide h4 {
+  margin: 0 0 2px;
+  font-size: 1rem;
+}
+.kin-ik-decide .kin-ik-src {
+  font-size: 0.8rem;
+  color: var(--text-3);
+  margin-bottom: 6px;
+}
+.kin-ik-score {
+  font-size: 0.82rem;
+  color: var(--text-2);
+}
+.kin-ik-thumb-name {
+  display: block;
+  font-size: 0.68rem;
+  line-height: 1.15;
+  color: var(--text-2);
+  padding: 0 2px 2px;
+  min-height: 2.3em;
+}

@@ -51,8 +51,7 @@ export function inverseSensorWithPrior(z: BinaryReading, s: BinarySensor, p0: nu
  * Course log-odds update with a general prior p0:
  *   l_t = l_{t-1} + ln[p(m | z_t) / (1 − p(m | z_t))] − l_0,
  * where the inverse sensor model p(m | z_t) is computed with the SAME prior p0 (so the l_0 it contains cancels).
- * Equals l_{t-1} + ln LR(z_t). (core/prob.ts logOddsUpdate is only right for p0 = 0.5: it builds the inverse sensor
- * model with 0.5 and still subtracts l0.)
+ * Equals l_{t-1} + ln LR(z_t), and core/prob.ts logOddsUpdate (which builds p(m | z_t) from fromLogOdds(l0)).
  */
 export function logOddsStep(lPrev: number, z: BinaryReading, s: BinarySensor, p0 = 0.5): number {
   if (p0 <= 0 || p0 >= 1) return lPrev; // l0 = ∓∞: nothing finite moves it

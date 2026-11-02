@@ -112,7 +112,11 @@ export class ArmRenderer {
   private ghost = new THREE.Group();
   private vals: Record<string, number> = {};
   private joints: THREE.Mesh[][] = [];
+  /** Link meshes of the main arm, per body (for tinting the part a PoE factor moves). */
+  private links: THREE.Mesh[][] = [];
   private highlight: number | null = null;
+  private examB = { l: -1, r: 1, t: 1, b: -1 };
+  private examAnim: { from: { l: number; r: number; t: number; b: number }; to: { l: number; r: number; t: number; b: number }; t0: number; ms: number } | null = null;
   private labels = new Map<string, { el: HTMLDivElement; item: Label; tex: string }>();
   private arm: ArmSpec | null = null;
   private screws: Screw[] = [];
@@ -264,16 +268,10 @@ export class ArmRenderer {
     this.jr = Math.min(0.062 * this.u, 0.25 * gap);
     this.jl = Math.min(0.19 * this.u, 0.62 * gap);
     this.lr = Math.min(0.024 * this.u, 0.4 * this.jr);
-    this.joints = this.buildArm(arm, vals, this.bodies, this.mat('--text-2'), this.mat('--text-3'), true);
+    this.links = this.bodies.map(() => []);
+    this.joints = this.buildArm(arm, vals, this.bodies, this.mat('--text-2'), this.mat('--text-3'), true, this.links);
     // frame on the robot plus room for the {s} and {b} triads and their labels
-    const p = linVecEval(arm.p, vals);
-    const tl = 0.36 * this.u;
-    this.framePts = [...b.pts];
-    for (let k = 0; k < 3; k++) {
-      const e: Vec3 = [0, 0, 0];
-      e[k] = tl;
-      this.framePts.push(e, [p[0] + arm.R[0][k] * tl, p[1] + arm.R[1][k] * tl, p[2] + arm.R[2][k] * tl]);
-    }
+    this.framePts = this.homePoints().map(([, x]) => x);
     this.highlight = null;
     this.setPose(arm.joints.map(() => 0));
     this.frameExam();
@@ -281,17 +279,65 @@ export class ArmRenderer {
     this.requestRender();
   }
 
+  /** Points that must stay in view, each with the body it rides on: links, joints, {b} and both triads' tips. */
+  private homePoints(triadLen = 0.36): [number, Vec3][] {
+    const arm = this.arm;
+    if (!arm) return [[0, [0, 0, 0]]];
+    const vals = this.vals;
+    const n = arm.joints.length;
+    const out: [number, Vec3][] = [];
+    arm.links.forEach((l) => l.pts.forEach((x) => out.push([Math.min(l.after, n), linVecEval(x, vals)])));
+    arm.joints.forEach((j, i) => {
+      const q = linVecEval(j.q, vals);
+      out.push([i, q], [Math.min(i + 1, n), q]);
+    });
+    const p = linVecEval(arm.p, vals);
+    const tl = triadLen * this.u;
+    out.push([0, [0, 0, 0]], [n, p]);
+    for (let k = 0; k < 3; k++) {
+      const e: Vec3 = [0, 0, 0];
+      e[k] = tl;
+      out.push([0, e], [n, [p[0] + arm.R[0][k] * tl, p[1] + arm.R[1][k] * tl, p[2] + arm.R[2][k] * tl]]);
+    }
+    return out;
+  }
+
+  /**
+   * Re-fit the exam view so that the robot stays in view in every listed state (each a list of n + 1 body
+   * transforms, e.g. the poses a PoE animation passes through), plus any extra {s} points. Eased over `ms`.
+   */
+  fitBodies(sets: readonly (readonly Mat4[])[], extra: readonly Vec3[] = [], ms = 320, triadLen = 0.3) {
+    if (!this.arm) return;
+    const home = this.homePoints(triadLen);
+    const pts: Vec3[] = [...extra];
+    const v = new THREE.Vector3();
+    const m = new THREE.Matrix4();
+    for (const P of sets)
+      for (const [body, x] of home) {
+        toM4(P[Math.min(body, P.length - 1)], m);
+        v.set(x[0], x[1], x[2]).applyMatrix4(m);
+        pts.push([v.x, v.y, v.z]);
+      }
+    this.framePts = pts;
+    // the orbit view only ever grows its framing radius (it is not re-aimed while the student orbits)
+    for (const p of pts) this.radius = Math.max(this.radius, Math.hypot(p[0] - this.center.x, p[1] - this.center.y, p[2] - this.center.z) + 0.15 * this.u);
+    this.frameExam(ms);
+  }
+
   /** Links and joint glyphs into per-body groups; returns the joint meshes (for highlighting). */
-  private buildArm(arm: ArmSpec, vals: Record<string, number>, groups: THREE.Object3D[], linkMat: Mat, jointMat: Mat, arrows: boolean): THREE.Mesh[][] {
+  private buildArm(arm: ArmSpec, vals: Record<string, number>, groups: THREE.Object3D[], linkMat: Mat, jointMat: Mat, arrows: boolean, record?: THREE.Mesh[][]): THREE.Mesh[][] {
+    const keep = (body: number, mesh: THREE.Mesh) => record?.[Math.min(body, record.length - 1)]?.push(mesh);
     for (const l of arm.links) {
-      const g = groups[Math.min(l.after, groups.length - 1)];
+      const a = Math.min(l.after, groups.length - 1);
+      const g = groups[a];
       const pts = l.pts.map((p) => linVecEval(p, vals));
-      for (let k = 0; k + 1 < pts.length; k++) this.rod(g, pts[k], pts[k + 1], this.lr, linkMat);
+      for (let k = 0; k + 1 < pts.length; k++) keep(a, this.rod(g, pts[k], pts[k + 1], this.lr, linkMat));
       for (let k = 0; k < pts.length; k++) {
         const s = new THREE.Mesh(this.geo.sphere, linkMat);
         s.position.set(pts[k][0], pts[k][1], pts[k][2]);
         s.scale.setScalar(this.lr);
         g.add(s);
+        keep(a, s);
       }
     }
     return arm.joints.map((j, i) => {
@@ -313,6 +359,7 @@ export class ArmRenderer {
       const rod = new THREE.Mesh(this.geo.cyl, linkMat);
       this.place(rod, q.clone().addScaledVector(ax, -this.jl * 0.55), q.clone().addScaledVector(ax, this.jl * 0.75), this.lr * 1.15);
       groups[Math.min(i + 1, groups.length - 1)].add(rod);
+      keep(i + 1, rod);
       const meshes = [box];
       if (arrows) {
         const side = new THREE.Vector3().crossVectors(ax, Math.abs(ax.z) < 0.9 ? Z_UP : new THREE.Vector3(1, 0, 0)).normalize();
@@ -326,7 +373,12 @@ export class ArmRenderer {
   /** Joint values → body matrices. */
   setPose(theta: readonly number[]) {
     if (!this.arm) return;
-    const P = partialSpace(this.screws, theta);
+    this.setBodies(partialSpace(this.screws, theta));
+  }
+
+  /** Body matrices directly (P[a] for a = 0 … n), e.g. a deliberately wrong product that tears the arm apart. */
+  setBodies(P: readonly Mat4[]) {
+    if (!this.arm) return;
     this.bodies.forEach((g, a) => {
       toM4(P[Math.min(a, P.length - 1)], g.matrix);
       g.matrixWorldNeedsUpdate = true;
@@ -339,6 +391,14 @@ export class ArmRenderer {
     const hi = this.mat('--accent');
     const base = this.mat('--text-3');
     this.joints.forEach((ms, k) => ms.forEach((m) => (m.material = k === i ? hi : base)));
+    this.requestRender();
+  }
+
+  /** Tint the links of bodies ≥ from (everything a PoE factor moves) in --m4, or none (null). */
+  setMoving(from: number | null) {
+    const on = this.mat('--m4');
+    const off = this.mat('--text-2');
+    this.links.forEach((ms, a) => ms.forEach((m) => (m.material = from !== null && a >= from ? on : off)));
     this.requestRender();
   }
 
@@ -480,15 +540,22 @@ export class ArmRenderer {
     return this.mode;
   }
 
-  private frameExam() {
-    const cam = this.ortho;
-    const aspect = this.w / this.h;
+  /** Fit the exam view to framePts; with ms > 0 (and the exam view showing) the change is eased. */
+  private frameExam(ms = 0) {
+    const to = this.examTarget();
+    if (ms > 0 && this.mode === 'exam' && !this.disposed) {
+      this.examAnim = { from: { ...this.examB }, to, t0: performance.now(), ms };
+      this.requestRender();
+    } else {
+      this.examAnim = null;
+      this.applyExam(to);
+    }
+  }
+
+  /** The orthographic window (in the camera's sheared screen coordinates) that holds every frame point. */
+  private examTarget() {
     const c = this.center;
     const v = this.view;
-    const D = this.radius * 4 + 1;
-    cam.position.set(c.x + v.out[0] * D, c.y + v.out[1] * D, c.z + v.out[2] * D);
-    cam.up.set(v.up[0], v.up[1], v.up[2]);
-    cam.lookAt(c);
     let x0 = Infinity;
     let x1 = -Infinity;
     let y0 = Infinity;
@@ -511,11 +578,22 @@ export class ArmRenderer {
     const hh = (this.h / 2) * wpp;
     const hw = (this.w / 2) * wpp;
     const shift = (topPx + avail / 2 - this.h / 2) * wpp;
-    void aspect;
-    cam.left = cx - hw;
-    cam.right = cx + hw;
-    cam.top = cy + shift + hh;
-    cam.bottom = cy + shift - hh;
+    return { l: cx - hw, r: cx + hw, t: cy + shift + hh, b: cy + shift - hh };
+  }
+
+  private applyExam(B: { l: number; r: number; t: number; b: number }) {
+    const cam = this.ortho;
+    const c = this.center;
+    const v = this.view;
+    const D = this.radius * 4 + 1;
+    cam.position.set(c.x + v.out[0] * D, c.y + v.out[1] * D, c.z + v.out[2] * D);
+    cam.up.set(v.up[0], v.up[1], v.up[2]);
+    cam.lookAt(c);
+    this.examB = B;
+    cam.left = B.l;
+    cam.right = B.r;
+    cam.top = B.t;
+    cam.bottom = B.b;
     cam.near = 0.01;
     cam.far = 2 * D;
     cam.updateProjectionMatrix();
@@ -602,6 +680,15 @@ export class ArmRenderer {
   private frame = (now: number) => {
     this.raf = 0;
     if (this.disposed) return;
+    if (this.examAnim) {
+      const a = this.examAnim;
+      const t = Math.max(0, Math.min(1, (now - a.t0) / a.ms));
+      const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      const mix = (x: number, y: number) => x + (y - x) * e;
+      this.applyExam({ l: mix(a.from.l, a.to.l), r: mix(a.from.r, a.to.r), t: mix(a.from.t, a.to.t), b: mix(a.from.b, a.to.b) });
+      if (t < 1) this.requestRender();
+      else this.examAnim = null;
+    }
     if (this.flight) {
       const f = this.flight;
       const t = Math.min(1, (now - f.t0) / f.ms);
@@ -929,6 +1016,19 @@ export function ArmPicker({ choice, options = ARM_OPTIONS }: { choice: ArmChoice
       </Button>
     </>
   );
+}
+
+/**
+ * Bring the 3-D view inside `root` on screen (centred) when a prediction's "Show me" runs from further down the
+ * page, so the student sees the answer happen. Does nothing if it is already fully visible below the app header.
+ */
+export function revealView(root: HTMLElement | null) {
+  const el = root?.querySelector<HTMLElement>('.kin3d-view');
+  if (!el || typeof window === 'undefined') return;
+  const r = el.getBoundingClientRect();
+  if (r.top >= 110 && r.bottom <= window.innerHeight - 8) return;
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
 }
 
 // ------------------------------------------------------------------ small animation helper

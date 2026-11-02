@@ -70,6 +70,8 @@ export default function Corridor() {
   const [auto, setAuto] = useState(false);
   const [speed, setSpeed] = useState(1);
   const leftRef = useRef<HTMLDivElement>(null);
+  const cellRefs = useRef<(SVGRectElement | null)[]>([]);
+  const [curCell, setCurCell] = useState(0);
   const tween = useTween();
   const busyUntil = useRef(0);
   const queue = useRef<Action[]>([]);
@@ -194,7 +196,7 @@ export default function Corridor() {
         const p2 = Math.max(0, (p - 0.45) / 0.55);
         for (let i = 0; i < n; i++) {
           const prod = before[i] * (1 + (lik[i] - 1) * p1);
-          setBar(prodRefs.current[i], prod, brk.yMax, rowTop(2), ROW_H);
+          setBar(prodRefs.current[i], prod, brk.yProd, rowTop(2), ROW_H);
           setBar(postRefs.current[i], (ev > 0 ? step.product[i] / ev : before[i]) * p2, brk.yPost, rowTop(3), ROW_H);
         }
         etaRef.current?.setAttribute('opacity', String(p2));
@@ -223,7 +225,7 @@ export default function Corridor() {
   // ---------------------------------------------------------------- render
   const robotX = G.x(snap.robot) + G.cw / 2;
   const top = (
-    <svg className="bayes-corridor-svg" viewBox={`0 0 ${VW} ${TOP_H}`} width="100%" role="img" aria-label={`Corridor of ${n} cells with doors at ${doors.map((d, i) => (d ? i + 1 : 0)).filter(Boolean).join(', ')}. Belief peaks at cell ${best + 1} with ${f3(snap.bel[best])}.`}>
+    <svg className="bayes-corridor-svg" viewBox={`0 0 ${VW} ${TOP_H}`} width="100%" role="group" aria-label={`Corridor of ${n} cells with doors at ${doors.map((d, i) => (d ? i + 1 : 0)).filter(Boolean).join(', ')}. Belief peaks at cell ${best + 1} with ${f3(snap.bel[best])}.`}>
       {/* corridor strip */}
       <rect x={PAD_L} y={STRIP_T} width={n * G.cw} height={STRIP_H} fill="var(--surface-2)" stroke="var(--text-3)" strokeWidth={1} />
       {doors.map((d, i) =>
@@ -237,6 +239,9 @@ export default function Corridor() {
       {doors.map((d, i) => (
         <rect
           key={`hit${i}`}
+          ref={(el) => {
+            cellRefs.current[i] = el;
+          }}
           className="bayes-cell-hit"
           x={G.x(i)}
           y={STRIP_T}
@@ -244,13 +249,22 @@ export default function Corridor() {
           height={STRIP_H}
           fill="transparent"
           role="button"
-          tabIndex={0}
-          aria-label={`Cell ${i + 1}: ${d ? 'door' : 'wall'}. Toggle door.`}
-          onClick={() => toggleDoor(i)}
+          // One Tab stop for the whole strip; ← → move between cells.
+          tabIndex={i === Math.min(curCell, n - 1) ? 0 : -1}
+          aria-label={`Cell ${i + 1}: ${d ? 'door' : 'wall'}. Toggle door (arrow keys move between cells).`}
+          onClick={() => {
+            setCurCell(i);
+            toggleDoor(i);
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
               toggleDoor(i);
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+              e.preventDefault();
+              const j = Math.max(0, Math.min(n - 1, i + (e.key === 'ArrowRight' ? 1 : -1)));
+              setCurCell(j);
+              cellRefs.current[j]?.focus();
             }
           }}
         >
@@ -272,7 +286,7 @@ export default function Corridor() {
           </text>
         </g>
       ))}
-      <text x={6} y={BEL_T - 6} className="bayes-axis-label">
+      <text x={6} y={BEL_T - 10} className="bayes-axis-label">
         bel(x)
       </text>
       {showRobot && <line x1={robotX} x2={robotX} y1={BEL_T - 4} y2={BEL_T + BEL_H} stroke="var(--m3)" strokeWidth={1.5} strokeDasharray="4 3" />}
@@ -345,7 +359,7 @@ export default function Corridor() {
       {top}
       {actions}
       {transport}
-      <Breakdown snap={snap} geo={G} brk={brk} pieceRefs={pieceRefs} prodRefs={prodRefs} postRefs={postRefs} etaRef={etaRef} params={params} />
+      <Breakdown snap={snap} geo={G} brk={brk} pieceRefs={pieceRefs} prodRefs={prodRefs} postRefs={postRefs} etaRef={etaRef} />
     </div>
   );
 
@@ -359,7 +373,7 @@ export default function Corridor() {
           <Readout label="Spread 2^H" text={`${effectiveCells(snap.bel).toFixed(1)} cells`} tip="2^H: the belief is as uncertain as a uniform spread over this many cells" />
           <Readout label="Peaks" text={modes === 0 ? 'none (flat)' : String(modes)} tip="Separate bumps in the belief (cells within 30 % of the top, grouped)" />
           <Readout label="Most likely" text={modes === 0 ? '— (flat)' : `cell ${best + 1}: ${f3(snap.bel[best])}`} tip="argmax bel(x) and its probability" />
-          {step?.kind === 'correct' && <Readout label="P(z)" text={f3(step.evidence)} tip="Evidence: Σ P(z | x) bel⁻(x), the sum of the products" />}
+          {step?.kind === 'correct' && <Readout label="P(z)" text={f3(step.evidence)} tip="Evidence: Σ P(z | x) b̅e̅l̅(x), the sum of the products" />}
           {step?.kind === 'correct' && <Readout label="η = 1/P(z)" text={step.evidence > 0 ? f2(1 / step.evidence) : '—'} tip="The normaliser that rescales the products to sum to 1" />}
           {showRobot && <Readout label="bel(true cell)" text={`cell ${snap.robot + 1}: ${f3(snap.bel[snap.robot])}`} tip="Belief at the robot's real position" tone="m3" />}
         </Readouts>
@@ -413,7 +427,7 @@ export default function Corridor() {
           question="The belief is uniform over the corridor with three doors. The robot senses **a door**. What does the corrected belief look like?"
           options={['One tall peak at the robot’s true door', 'One peak at **every** door, all the same height', 'Still uniform: one reading is not enough', 'Peaks between the doors']}
           answer={1}
-          explain="The likelihood is the same at every door ($P(\text{door} \mid \text{door})$ = 0.8) and the prior is flat, so every door cell gets the same posterior. The robot knows it is beside *a* door, not which one: the belief is **multimodal**, one peak per door (about 0.16 each here, against 0.02 at a wall). Only the pattern of later readings, combined with the known motion, can tell the doors apart."
+          explain="The likelihood is the same at every door ($P(\text{door} \mid \text{door})$ = 0.9) and the prior is flat, so every door cell gets the same posterior. The robot knows it is beside *a* door, not which one: the belief is **multimodal**, one peak per door ($0.9/4.05 \approx 0.22$ each, against $0.05/4.05 \approx 0.01$ at a wall). Only the pattern of later readings, combined with the known motion, can tell the doors apart."
           tryIt="start from a uniform belief and correct with “door”."
           onApply={() =>
             setup(() => {
@@ -458,10 +472,18 @@ export default function Corridor() {
           question="Set the false-alarm rate **equal** to the hit rate (both 0.6). What does a correction do to the belief?"
           options={['Sharpens it at the doors', 'Nothing: the posterior equals the prior', 'Flattens it to uniform']}
           answer={1}
-          explain="If $P(z \mid \text{door}) = P(z \mid \text{wall})$, the likelihood is the same number at every cell. Multiplying by a constant and normalising changes nothing: $\eta$ exactly cancels it. A reading that is equally likely in every state carries no information. What matters is the **ratio** of hit rate to false-alarm rate, not the hit rate alone."
+          explain="If $P(z \mid \text{door}) = P(z \mid \text{wall})$, the likelihood is the same number at every cell. Multiplying by a constant and normalising changes nothing: $\eta$ exactly cancels it, so the posterior row below is a copy of the prior row. A reading that is equally likely in every state carries no information. What matters is the **ratio** of hit rate to false-alarm rate, not the hit rate alone."
           tryIt="set both sensor sliders to 0.6 and correct."
           onApply={() =>
             setup(() => {
+              setHist((h) => {
+                const s = h[h.length - 1];
+                if (entropyBits(s.bel) < Math.log2(s.bel.length) - 0.05) return h;
+                // From a flat belief "nothing changes" would be invisible: take one good "door" reading first
+                // (shown at once), so the useless reading below has a belief with peaks to leave untouched.
+                skipAnim.current = true;
+                return [...h, doCorrect({ ...s, reading: 'door' }, doorsRef.current, 'door', { ...paramsRef.current, sensor: DEFAULT_PARAMS.sensor }, rand)];
+              });
               const p = { ...paramsRef.current, sensor: { hit: 0.6, falseAlarm: 0.6 } };
               setParams(p);
               paramsRef.current = p;
@@ -474,7 +496,7 @@ export default function Corridor() {
           question="Load the **evenly spaced** doors on the looped corridor and let the robot drive round for twelve predict–correct cycles. Does it localise?"
           options={['Yes: one sharp peak after a few doors', 'No: three equal peaks, 10 cells apart, survive forever', 'It localises, but to the wrong door']}
           answer={1}
-          explain="Every door looks the same and so does every gap. Whatever sequence of readings the robot gets, shifting the whole story by 10 cells fits it equally well, so the three hypotheses keep identical weights: the readings cannot break the symmetry. This is **perceptual aliasing**; the fix is a distinctive landmark (an irregular door, a sign), not more of the same readings. Compare the three-door preset, where the uneven gaps let the pattern pick one door."
+          explain="Every door looks the same and so does every gap. Whatever sequence of readings the robot gets, shifting the whole story by 10 cells fits it equally well, so the three hypotheses keep identical weights: the readings cannot break the symmetry. This is **perceptual aliasing**; the fix is a distinctive landmark (an irregular door, a sign), not more of the same readings. Compare the three-door preset: there the uneven gaps let the pattern of readings pick one door, usually within one lap."
           tryIt="load “Evenly spaced doors” and press Auto-run."
           onApply={() =>
             setup(() => {
@@ -532,11 +554,13 @@ interface PieceGeo {
 interface BreakdownGeo {
   yMax: number;
   yPost: number;
+  /** Scale of the product row: the prior's, unless the products are tiny (a surprising reading), then magnified. */
+  yProd: number;
   pieces?: PieceGeo[];
 }
 
 function breakdownGeo(step: Snap['step'], n: number): BreakdownGeo {
-  if (!step) return { yMax: 1, yPost: 1 };
+  if (!step) return { yMax: 1, yPost: 1, yProd: 1 };
   if (step.kind === 'predict') {
     const yMax = niceMax(Math.max(...step.before, ...step.after));
     const pieces: PieceGeo[] = [];
@@ -558,11 +582,13 @@ function breakdownGeo(step: Snap['step'], n: number): BreakdownGeo {
           p.yTo = destStack[p.to];
           destStack[p.to] += p.mass;
         }
-    return { yMax, yPost: 1, pieces };
+    return { yMax, yPost: 1, yProd: yMax, pieces };
   }
   const yMax = niceMax(Math.max(...step.before));
   const yPost = niceMax(Math.max(...step.after));
-  return { yMax, yPost };
+  const pMax = Math.max(...step.product);
+  const yProd = pMax > 0 && pMax < 0.3 * yMax ? niceMax(pMax) : yMax;
+  return { yMax, yPost, yProd };
 }
 
 function Breakdown({
@@ -573,7 +599,6 @@ function Breakdown({
   prodRefs,
   postRefs,
   etaRef,
-  params,
 }: {
   snap: Snap;
   geo: Geo;
@@ -582,7 +607,6 @@ function Breakdown({
   prodRefs: { current: (SVGRectElement | null)[] };
   postRefs: { current: (SVGRectElement | null)[] };
   etaRef: { current: SVGTextElement | null };
-  params: Params;
 }) {
   const step = snap.step;
   const n = G.n;
@@ -662,12 +686,20 @@ function Breakdown({
   }
   const z = step.z;
   const ev = step.evidence;
-  const likDoor = z === 'door' ? params.sensor.hit : 1 - params.sensor.hit;
-  const likWall = z === 'door' ? params.sensor.falseAlarm : 1 - params.sensor.falseAlarm;
+  const { likDoor, likWall } = step;
   const rows: { label: string; vals: number[]; yMax: number; col: string; refs?: { current: (SVGRectElement | null)[] }; initial?: 'zero' }[] = [
-    { label: 'prior: predicted belief bel⁻(x)', vals: step.before, yMax: brk.yMax, col: 'var(--m1)' },
+    { label: 'prior: predicted belief b̅e̅l̅(x)', vals: step.before, yMax: brk.yMax, col: 'var(--m1)' },
     { label: `× likelihood P(z = ${z === 'door' ? 'door' : 'no door'} | x)   (scale 0 to 1)`, vals: step.lik, yMax: 1, col: 'var(--m2)' },
-    { label: `= product (same scale as the prior): sums to P(z) = ${f3(ev)}`, vals: step.product, yMax: brk.yMax, col: 'var(--m3)', refs: prodRefs },
+    {
+      label:
+        brk.yProd < brk.yMax
+          ? `= product, sums to P(z) = ${f3(ev)}: drawn ×${Number((brk.yMax / brk.yProd).toFixed(1))} larger so it stays visible`
+          : `= product (same scale as the prior): sums to P(z) = ${f3(ev)}`,
+      vals: step.product,
+      yMax: brk.yProd,
+      col: 'var(--m3)',
+      refs: prodRefs,
+    },
     { label: 'posterior bel(x) = η × product', vals: step.after, yMax: brk.yPost, col: 'var(--m1)', refs: postRefs },
   ];
   return (

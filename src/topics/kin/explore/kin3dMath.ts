@@ -9,6 +9,8 @@
 import {
   ZERO,
   C,
+  applyT,
+  identity,
   cross3,
   crossNL,
   dot3,
@@ -177,6 +179,17 @@ export const columnsOf = (R: Mat3): (SignedAxis | null)[] => [0, 1, 2].map((j) =
 /** The notes' table: v = −ω × q for ω = x̂, ŷ, ẑ (negate for −ω). */
 export const SHORTCUT_TEX = ['(0,\\ q_z,\\ -q_y)', '(-q_z,\\ 0,\\ q_x)', '(q_y,\\ -q_x,\\ 0)'] as const;
 
+/**
+ * The notes' shortcut row for a joint axis, with the sign of ω as used: e.g. the 2024 arm's joint 3 (axis −x̂):
+ * 'ω = −x̂: v = −(0, q_z, −q_y)'. `flipped` reverses ω (the student read the arrow the other way). '' if not axis-aligned.
+ */
+export function shortcutNoteTeX(dir: Vec3, flipped = false): string {
+  const a = signedAxisOf(dir);
+  if (!a) return '';
+  const neg = (a.sign < 0) !== flipped ? '-' : '';
+  return `\\omega = ${neg}\\hat{${AXIS_LETTERS[a.axis]}}:\\ v = ${neg}${SHORTCUT_TEX[a.axis]}`;
+}
+
 /** v = −ω × q by the shortcut table (exact for ±x̂, ±ŷ, ±ẑ; a general ω falls back to the cross product). */
 export function shortcutV(w: Vec3, q: LinVec): LinVec {
   const a = signedAxisOf(w);
@@ -197,6 +210,19 @@ export function shortcutWorkTeX(w: Vec3, q: LinVec): string {
 
 /** q + tω: another point on the same axis. */
 export const qShift = (q: LinVec, w: Vec3, t: number): LinVec => [linAdd(q[0], C(t * w[0])), linAdd(q[1], C(t * w[1])), linAdd(q[2], C(t * w[2]))];
+
+/**
+ * The slide t (along an axis-aligned joint direction) that takes the plain number out of q's coordinate along the
+ * axis. That number only says where along its own axis the joint happens to be drawn (the review deck's joint 3 at
+ * 0.35 m), so qShift(q, dir, tidyT(q, dir)) is a point on the same axis written with the figure's lengths only.
+ * 0 when there is nothing to remove (or the axis is not along x̂, ŷ or ẑ).
+ */
+export function tidyT(q: LinVec, dir: Vec3): number {
+  const a = signedAxisOf(dir);
+  if (!a) return 0;
+  const c = q[a.axis]['1'] ?? 0;
+  return Math.abs(c) < 1e-12 ? 0 : -a.sign * c;
+}
 
 /** The point of the axis nearest the frame origin, q − (q·ω)ω: its along-axis coordinate is 0 (the simplest q). */
 export function qFoot(q: LinVec, w: Vec3): LinVec {
@@ -316,6 +342,29 @@ export function armBounds(arm: ArmSpec, vals: Record<string, number>): { center:
   return { center, radius: radius + 0.3 * size, size, pts };
 }
 
+/** Tips of the {s} triad and of the {b} triad (at the zero configuration), where their axis labels sit. */
+export function triadTips(arm: ArmSpec, vals: Record<string, number>, len: number): Vec3[] {
+  const p = linVecEval(arm.p, vals);
+  const out: Vec3[] = [];
+  for (let k = 0; k < 3; k++) {
+    const e: Vec3 = [0, 0, 0];
+    e[k] = len;
+    out.push(e, [p[0] + len * arm.R[0][k], p[1] + len * arm.R[1][k], p[2] + len * arm.R[2][k]]);
+  }
+  return out;
+}
+
+/**
+ * Where to put a screw axis's tag: just past the arrowhead, unless a frame label already sits there (an axis
+ * through the {b} origin along one of {b}'s axes, say), in which case at the tail end of the line.
+ */
+export function axisTagAt(q: Vec3, w: Vec3, span: readonly [number, number], avoid: readonly Vec3[], minDist: number, ext: number): Vec3 {
+  const at = (t: number): Vec3 => [q[0] + w[0] * t, q[1] + w[1] * t, q[2] + w[2] * t];
+  const head = at(span[1] + ext);
+  const clash = avoid.some((a) => Math.hypot(a[0] - head[0], a[1] - head[1], a[2] - head[2]) < minDist);
+  return clash ? at(span[0] - ext * 0.6) : head;
+}
+
 /** How far a line through q along w must run (in units of w, both ways) to poke out of the robot by `margin`. */
 export function axisSpan(pts: readonly Vec3[], q: Vec3, w: Vec3, margin: number): [number, number] {
   let lo = 0;
@@ -369,6 +418,95 @@ export function poeWrongOrder(M: Mat4, S: readonly Screw[], theta: readonly numb
   let T: Mat4 = M;
   S.forEach((s, i) => (T = matMul(expScrew(s, theta[i]), T)));
   return T;
+}
+
+/** Build step (1 … n) at which joint j (0-based) is applied: the inverse of poeJointAt. */
+export const poeStepOf = (n: number, j: number, form: PoeForm) => (form === 's' ? n - j : j + 1);
+
+/**
+ * Body transforms when the space-form factors are applied in the WRONG order: e^[S1]θ1 first, every factor about
+ * its axis fixed in {s}. Body a gets W_a = e^[Sa]θa' ⋯ e^[S1]θ1' (θ' = the proximal-first schedule at s), so at
+ * s = n the end-effector is at W_n M = e^[Sn]θn ⋯ e^[S1]θ1 M (poeWrongOrder), not T(θ).
+ */
+export function wrongOrderBodies(S: readonly Screw[], theta: readonly number[], s: number): Mat4[] {
+  const th = poePose(theta, s, 'b');
+  const out: Mat4[] = [identity(4)];
+  S.forEach((sc, a) => out.push(matMul(expScrew(sc, th[a]), out[a])));
+  return out;
+}
+
+export interface Tear {
+  joint: number;
+  /** Where the distal side of the joint should be (carried by the proximal body). */
+  at: Vec3;
+  /** Where it is. */
+  to: Vec3;
+  gap: number;
+}
+
+/**
+ * Where body transforms W tear the arm apart. Joint j's distal side should sit at W_j e^[Sj]θj q_j (the joint's own
+ * motion, seen from the proximal body); it sits at W_{j+1} q_j. A real pose (partial products) has every gap 0.
+ */
+export function bodyTears(W: readonly Mat4[], S: readonly Screw[], th: readonly number[], qs: readonly Vec3[]): Tear[] {
+  return qs.map((q, j) => {
+    const at = applyT(matMul(W[j], expScrew(S[j], th[j])), q);
+    const to = applyT(W[j + 1], q);
+    return { joint: j, at, to, gap: Math.hypot(to[0] - at[0], to[1] - at[1], to[2] - at[2]) };
+  });
+}
+
+/**
+ * The wrong order, just before factor j + 1 (joint j, 0-based) is applied about its fixed axis: 'fine' if the earlier
+ * factors left joint j where S_j says, 'off' if they carried a revolute joint off its fixed axis line (the arm tears
+ * there), 'tilted' if the joint is still on the line (or is prismatic) but its axis now points another way.
+ */
+export function wrongStepStatus(S: readonly Screw[], theta: readonly number[], qs: readonly Vec3[], j: number, tol: number): 'fine' | 'off' | 'tilted' {
+  if (j <= 0) return 'fine';
+  const W = wrongOrderBodies(S, theta, j)[j];
+  const isR = Math.hypot(S[j].w[0], S[j].w[1], S[j].w[2]) > 0.5;
+  const ax: Vec3 = isR ? S[j].w : S[j].v;
+  const q = applyT(W, qs[j]);
+  const d: Vec3 = [q[0] - qs[j][0], q[1] - qs[j][1], q[2] - qs[j][2]];
+  const along = dot3(d, ax);
+  if (isR && Math.hypot(d[0] - along * ax[0], d[1] - along * ax[1], d[2] - along * ax[2]) > tol) return 'off';
+  const R = [0, 1, 2].map((r) => [W[r][0], W[r][1], W[r][2]]);
+  const now: Vec3 = [0, 1, 2].map((r) => R[r][0] * ax[0] + R[r][1] * ax[1] + R[r][2] * ax[2]) as Vec3;
+  return Math.hypot(now[0] - ax[0], now[1] - ax[1], now[2] - ax[2]) > 1e-3 ? 'tilted' : 'fine';
+}
+
+/**
+ * Animation segments from s0 to target, split at whole steps so that each factor eases in and out on its own:
+ * poeSegments(0.4, 2) = [[0.4, 1], [1, 2]].
+ */
+export function poeSegments(s0: number, target: number): [number, number][] {
+  const segs: [number, number][] = [];
+  const dir = Math.sign(target - s0);
+  let a = s0;
+  for (let guard = 0; dir !== 0 && Math.abs(target - a) > 1e-9 && guard < 64; guard++) {
+    let b = dir > 0 ? Math.floor(a + 1e-9) + 1 : Math.ceil(a - 1e-9) - 1;
+    if (dir > 0 ? b > target : b < target) b = target;
+    segs.push([a, b]);
+    a = b;
+  }
+  return segs;
+}
+
+/** A starting pose that shows every factor clearly: revolute joints 35–55° (alternating sign), prismatic 0.25 m. */
+export function defaultPoeTheta(arm: ArmSpec): number[] {
+  const deg = [40, -35, 50, 45, -55, 30, 40];
+  return arm.joints.map((j, i) => (j.type === 'R' ? deg[i % deg.length] * DEG : 0.25));
+}
+
+/** e^{[S_3]\theta_3} (space) or e^{[B_3]\theta_3} (body) for joint j (0-based). */
+export const factorTeX = (form: PoeForm, j: number) => `e^{[${form === 's' ? 'S' : 'B'}_{${j + 1}}]\\theta_{${j + 1}}}`;
+
+/** The running product after k factors, e.g. space n = 4, k = 2: e^{[S_3]θ_3} e^{[S_4]θ_4} M. wrong: e^{[S_2]θ_2} e^{[S_1]θ_1} M. */
+export function productTeX(n: number, k: number, form: PoeForm, wrong = false): string {
+  if (k <= 0) return 'M';
+  if (wrong) return `${Array.from({ length: k }, (_, i) => factorTeX('s', k - 1 - i)).join('')} M`;
+  if (form === 's') return `${Array.from({ length: k }, (_, i) => factorTeX('s', n - k + i)).join('')} M`;
+  return `M ${Array.from({ length: k }, (_, i) => factorTeX('b', i)).join('')}`;
 }
 
 /** Largest absolute difference between two matrices. */

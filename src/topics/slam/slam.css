@@ -16,6 +16,11 @@
   z-index: 2;
   min-width: 0;
 }
+/* Taller than the window (short laptop screens): scroll with the page so the bottom stays reachable
+   (set by useStickyFit in explore/slamCommon.tsx). */
+.slam-left.is-unstuck {
+  position: static;
+}
 .slam-right {
   display: grid;
   gap: 12px;
@@ -226,6 +231,13 @@
 .slam-wf-num.is-in {
   fill: var(--surface);
 }
+/* A halo, so the dashed "now" line behind a label does not cut through it. */
+.slam-wf-num:not(.is-in) {
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
 .slam-wf-head {
   font-size: 13px;
   font-weight: 650;
@@ -283,6 +295,20 @@
 .slam-occ-sensor th.is-col,
 .slam-occ-sensor td.is-col {
   background: var(--accent-soft);
+}
+.slam-occ-inverse tr.is-sum th,
+.slam-occ-inverse tr.is-sum td {
+  color: var(--text-3);
+  border-bottom: none;
+}
+.slam-occ-inverse td.slam-occ-steps {
+  font-size: 0.76rem;
+  color: var(--text-2);
+  vertical-align: middle;
+  line-height: 1.5;
+}
+.slam-occ-inverse + .note {
+  margin-top: 2px;
 }
 .slam-occ-working {
   font-size: 0.88rem;
@@ -498,4 +524,72 @@
 }
 .slam-which-slam .seg-btn {
   font-size: 0.8rem;
+}
+
+/* ------------------------------------------------------------------ ray-cast grid builder */
+.slam-rc-map {
+  min-width: 0;
+  line-height: 0;
+}
+.slam-rc-canvas {
+  display: block;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: crosshair;
+  touch-action: none;
+}
+.slam-rc-canvas:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.slam-rc-status {
+  margin-left: auto;
+}
+.slam-rc-clamp {
+  stroke: var(--text-2);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 2;
+}
+.slam-rc-t {
+  font-size: 10.5px;
+  fill: var(--text-2);
+}
+.slam-rc-t.is-strong {
+  font-weight: 650;
+}
+.slam-rc-ism {
+  margin: 6px 0 4px;
+}
+
+/* ------------------------------------------------------------------ loop closure */
+.slam-lc-canvas {
+  display: block;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.slam-lc-map {
+  min-width: 0;
+  line-height: 0;
+}
+.slam-lc-event {
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  background: var(--accent-soft);
+}
+.slam-lc-event.is-false {
+  border-color: var(--bad);
+  background: var(--bad-soft);
+}
+.slam-lc-event.is-missed {
+  border-color: var(--warn);
+  background: var(--warn-soft);
+}
+.slam-lc-event > * + * {
+  margin-top: 6px;
+}
+.slam-lc-modes .seg-btn {
+  font-size: 0.82rem;
 }

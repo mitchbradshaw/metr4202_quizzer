@@ -16,6 +16,9 @@
      row stay visible while the right column scrolls (e.g. after a prediction's "Show me"). */
   top: 106px;
   z-index: 2;
+  /* On short laptop screens (768 px tall) the panel scrolls inside itself instead of being cut off. */
+  max-height: calc(100vh - 114px);
+  overflow-y: auto;
 }
 .plan-grid-layout.is-wide .plan-grid-left {
   position: static;

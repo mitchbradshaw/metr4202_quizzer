@@ -56,7 +56,7 @@ export function useStepper(n: number, opts: { speed?: number; start?: number } =
     setI,
     setSpeed,
     play: () => {
-      if (i >= n) setIRaw(0);
+      setIRaw((cur) => (cur >= n ? 0 : cur));
       acc.current = 0;
       setPlaying(true);
     },
@@ -64,7 +64,7 @@ export function useStepper(n: number, opts: { speed?: number; start?: number } =
     toggle: () => {
       if (playing) setPlaying(false);
       else {
-        if (i >= n) setIRaw(0);
+        setIRaw((cur) => (cur >= n ? 0 : cur));
         acc.current = 0;
         setPlaying(true);
       }

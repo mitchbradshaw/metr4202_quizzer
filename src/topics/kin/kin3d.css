@@ -327,6 +327,10 @@
 .kin3d-cell.is-narrow {
   width: 38px;
 }
+/* symbolic entries such as L2+L3+L4 or -L2-L5-L6 */
+.kin3d-cell.is-wide {
+  width: 88px;
+}
 .kin3d-cell:focus {
   outline: 2px solid var(--accent);
   outline-offset: 0;
@@ -361,9 +365,13 @@
   font-size: 1.02em;
 }
 .kin3d-mat-cap {
-  font-size: 0.8rem;
-  color: var(--text-3);
+  font-size: 1rem;
+  color: var(--text-2);
   margin-bottom: 2px;
+}
+.kin3d-mat-cap.is-sub {
+  font-size: 0.86rem;
+  color: var(--text-3);
 }
 .kin3d-status {
   display: inline-flex;
@@ -392,13 +400,13 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 2px 3px;
-  font-size: 1.05rem;
+  gap: 4px 3px;
+  font-size: 1.12rem;
   padding: 6px 4px;
 }
 .kin3d-factor {
   border-radius: 6px;
-  padding: 1px 4px;
+  padding: 1px 3px;
   border: 1.5px solid transparent;
   color: var(--text-3);
   transition:
@@ -418,6 +426,59 @@
   color: var(--text);
   font-weight: 600;
 }
+button.kin3d-factor {
+  font: inherit;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  background: none;
+  cursor: pointer;
+  line-height: 1.25;
+}
+button.kin3d-factor:not(.is-now):not(.is-done):not(.is-m) {
+  border: 1.5px dashed var(--border);
+}
+button.kin3d-factor:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+button.kin3d-factor:disabled {
+  cursor: default;
+}
+button.kin3d-factor:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.kin3d-factor-step {
+  font-size: 0.66rem;
+  color: var(--text-3);
+  font-family: var(--mono);
+}
+.kin3d-factor.is-now .kin3d-factor-step {
+  color: var(--accent);
+  font-weight: 700;
+}
+.kin3d-op {
+  font-size: 1.35rem;
+  color: var(--text-2);
+  padding: 0 2px;
+}
+.kin3d-op.kin3d-sub {
+  font-size: 0.85rem;
+}
+.kin3d-mat.is-hot {
+  border-radius: 8px;
+  padding: 2px 8px;
+  background: var(--accent-soft);
+}
+.kin3d-panel .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0;
+}
+.kin3d-mat .katex-display {
+  margin: 4px 0;
+}
 
 /* ---------------------------------------------------------------- predictions, more */
 .kin3d-predicts {
@@ -432,4 +493,8 @@
 .kin3d-shortcut td.is-on {
   background: var(--accent-soft);
   font-weight: 600;
+}
+
+.kin3d-formula.is-tight {
+  font-size: 1rem;
 }

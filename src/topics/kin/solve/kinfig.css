@@ -152,3 +152,124 @@
   fill: var(--m4);
   font-weight: 500;
 }
+/* the arm at the asked configuration (PoE / Jacobian answers) */
+.kin-fig-ov-pose {
+  fill: none;
+  stroke: var(--m4);
+  stroke-width: 3;
+  stroke-dasharray: 9 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.9;
+}
+.kin-fig-ov-posez {
+  stroke: var(--m4);
+  stroke-width: 2;
+}
+.kin-fig-ov-posedot,
+.kin-fig-ov-posehead {
+  fill: var(--m4);
+}
+.kin-fig-ov-poselabel {
+  fill: var(--m4);
+}
+
+/* ---- the pinned copy: a small figure in the corner while the parts are scrolled into view */
+.kin-fig-pinbtn {
+  margin-left: auto;
+}
+.kin-fig-float {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 30;
+  width: min(420px, 33vw);
+  max-height: 58vh;
+  overflow: hidden;
+  padding: 4px 8px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow), 0 8px 28px color-mix(in srgb, var(--text) 22%, transparent);
+}
+.kin-fig-floathead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.kin-fig-mini {
+  margin: 0 auto;
+  /* a tall figure is scaled down to fit rather than scrolled */
+  max-height: calc(58vh - 44px);
+}
+
+/* ---- compact direction picker (kinfigPick.tsx): a small grid in a fixed order instead of a long shuffled list */
+.kin-pick-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.kin-pick {
+  display: grid;
+  gap: 6px;
+}
+.kin-pick-opt {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 6px 26px;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.kin-pick-opt:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.kin-pick-opt:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.kin-pick-opt:disabled {
+  cursor: default;
+}
+.kin-pick-opt.is-picked {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  background: var(--accent-soft);
+}
+.kin-pick-opt.is-right {
+  border-color: var(--ok);
+  box-shadow: inset 0 0 0 1px var(--ok);
+  background: var(--ok-soft);
+}
+.kin-pick-opt.is-wrong {
+  border-color: var(--bad);
+  box-shadow: inset 0 0 0 1px var(--bad);
+  background: var(--bad-soft);
+}
+.kin-pick-opt.is-dim {
+  opacity: 0.55;
+}
+.kin-pick-mark {
+  position: absolute;
+  left: 9px;
+  font-size: 0.85em;
+  font-weight: 700;
+}
+.kin-pick-opt.is-right .kin-pick-mark {
+  color: var(--ok);
+}
+.kin-pick-opt.is-wrong .kin-pick-mark {
+  color: var(--bad);
+}
+.kin-pick-why + .kin-pick-why {
+  margin-top: 4px;
+}

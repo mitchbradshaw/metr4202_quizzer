@@ -89,10 +89,14 @@
 }
 .bayes-left {
   position: sticky;
-  /* below the app's sticky top bar and topic tabs, so the visual stays in view while the right column scrolls */
+  /* below the app's sticky top bar and topic tabs, so the visual stays in view while the right column scrolls;
+     on a short laptop screen the panel scrolls inside itself instead of hiding its bottom edge */
   top: 106px;
   z-index: 2;
   min-width: 0;
+  max-height: calc(100vh - 114px);
+  overflow-y: auto;
+  border-radius: var(--radius);
 }
 .bayes-right {
   display: grid;
@@ -280,4 +284,407 @@
   color: var(--surface);
   background: var(--m2);
   vertical-align: 1px;
+}
+.bayes-table tr.is-shared td {
+  background: var(--surface-2);
+}
+.bayes-table tr.is-shared td:nth-child(4) {
+  font-weight: 700;
+  color: var(--m2);
+}
+.bayes-label {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.bayes-warn {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+/* Sliders in the narrow right-hand column: the label (often a conditional probability) gets its own line. */
+.bayes-right .slider {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 10px;
+  margin: 4px 0 8px;
+}
+.bayes-right .slider-label {
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+
+/* ---------------------------------------------------------------- grid2d: transition stencil editor */
+.bayes-stencil-edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  align-items: flex-start;
+  margin-bottom: 6px;
+}
+.bayes-stencil-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 56px);
+  gap: 3px;
+  margin: 6px 0 4px;
+}
+.bayes-stencil-input {
+  width: 56px;
+  height: 40px;
+  box-sizing: border-box;
+  text-align: center;
+  font: 13px var(--mono);
+  color: var(--text-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0 2px;
+}
+.bayes-stencil-input.is-on {
+  color: var(--text);
+  font-weight: 700;
+  background: var(--surface);
+  border-color: var(--m2);
+}
+.bayes-stencil-input.is-centre {
+  outline: 2px dashed var(--text-3);
+  outline-offset: -6px;
+}
+.bayes-stencil-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
+.bayes-stencil-side {
+  display: grid;
+  gap: 6px;
+  flex: 1 1 150px;
+  min-width: 0;
+}
+.bayes-col-btns {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+}
+.bayes-col-btns .btn {
+  text-align: left;
+}
+
+/* ---------------------------------------------------------------- bayes-rule: area picture and label game */
+.bayes-rule-svg {
+  display: block;
+  height: auto;
+  overflow: visible;
+  user-select: none;
+  touch-action: none;
+}
+.bayes-rule-faint {
+  font: 10.5px var(--font);
+  fill: var(--text-2);
+}
+.bayes-rule-in {
+  font: 700 11px var(--mono);
+  fill: var(--surface);
+}
+.bayes-rule-num {
+  font: 700 11px var(--mono);
+  fill: var(--accent);
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3px;
+}
+.bayes-grip {
+  cursor: grab;
+  outline: none;
+}
+.bayes-grip:active {
+  cursor: grabbing;
+}
+.bayes-grip:focus-visible circle:nth-of-type(2),
+.bayes-grip:focus-visible rect:nth-of-type(1) {
+  stroke: var(--text);
+  stroke-width: 2.5px;
+}
+.bayes-game > * + * {
+  margin-top: 10px;
+}
+.bayes-formula {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.bayes-formula-eq {
+  font: 1.5rem var(--font);
+  color: var(--text-2);
+}
+.bayes-frac {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+.bayes-frac-row {
+  display: flex;
+  gap: 6px;
+}
+.bayes-frac-bar {
+  width: 100%;
+  height: 2px;
+  background: var(--text);
+}
+.bayes-slot {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+.bayes-slot:hover {
+  border-color: var(--border);
+  background: var(--surface-2);
+}
+.bayes-slot-tex {
+  font-size: 1.15rem;
+}
+.bayes-slot-drop {
+  min-width: 104px;
+  min-height: 30px;
+  padding: 3px 8px;
+  border-radius: 7px;
+  border: 1.5px dashed var(--text-3);
+  background: var(--surface);
+  color: var(--text);
+  font: 600 0.84rem var(--font);
+  cursor: pointer;
+}
+.bayes-slot.is-armed .bayes-slot-drop {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.bayes-slot.is-right .bayes-slot-drop {
+  border-style: solid;
+  border-color: var(--ok);
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.bayes-slot.is-wrong .bayes-slot-drop {
+  border-style: solid;
+  border-color: var(--bad);
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+.bayes-slot-drop:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.bayes-chip-in {
+  cursor: grab;
+}
+.bayes-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 40px;
+  padding: 6px;
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.bayes-term-chip {
+  display: inline-grid;
+  gap: 1px;
+  text-align: left;
+  padding: 4px 9px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: 0.8rem var(--font);
+  cursor: grab;
+}
+.bayes-term-chip strong {
+  font-size: 0.86rem;
+}
+.bayes-term-chip > :last-child {
+  color: var(--text-2);
+}
+.bayes-term-chip.is-sel {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.bayes-term-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------- classifier: timeline, decision, tables */
+.bayes-cls-svg {
+  display: block;
+  height: auto;
+  user-select: none;
+}
+.bayes-cls-bar {
+  cursor: pointer;
+  outline: none;
+}
+.bayes-cls-bar:hover rect:first-of-type,
+.bayes-cls-bar:focus-visible rect:first-of-type {
+  stroke: var(--accent);
+  stroke-width: 2px;
+}
+.bayes-cls-best {
+  font-weight: 700;
+  fill: var(--text-2);
+}
+.bayes-cls-z {
+  font: 700 11.5px var(--font);
+  fill: var(--text);
+}
+.bayes-cls-dec-head {
+  margin-top: 10px;
+}
+.bayes-cls-dec {
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+}
+.bayes-cls-dec-row {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr) 52px;
+  gap: 2px 10px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.bayes-cls-dec-row.is-best {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.bayes-cls-dec-name {
+  font-weight: 700;
+}
+.bayes-cls-dec-track {
+  display: flex;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.bayes-cls-dec-seg {
+  height: 100%;
+  transition: width 0.45s ease;
+}
+.bayes-cls-dec-val {
+  text-align: right;
+  font-weight: 700;
+}
+.bayes-cls-dec-sum {
+  grid-column: 2 / -1;
+}
+.bayes-cls-conf .is-col {
+  background: var(--accent-soft);
+}
+.bayes-cls-conf th.is-col {
+  color: var(--accent);
+}
+.bayes-num-in {
+  width: 64px;
+  box-sizing: border-box;
+  padding: 2px 4px;
+  text-align: right;
+  font: 13px var(--mono);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+.bayes-num-in:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
+.bayes-cls-prior {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr) 44px;
+  margin: 2px 0;
+}
+.bayes-cls-prior input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.bayes-cls-prior-name {
+  font: 600 0.86rem var(--mono);
+}
+.bayes-cls-all {
+  display: grid;
+  gap: 10px;
+}
+
+/* ---------------------------------------------------------------- markov: scenario cards and the demo */
+.bayes-mk {
+  margin: 12px 0;
+}
+.bayes-mk-cards-wrap h4 {
+  margin: 0;
+}
+.bayes-mk-head {
+  margin-bottom: 8px;
+}
+.bayes-mk-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 10px;
+}
+.bayes-mk-card {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.bayes-mk-card.is-right {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+}
+.bayes-mk-card.is-wrong {
+  border-color: var(--bad);
+  background: var(--bad-soft);
+}
+.bayes-mk-title {
+  font-weight: 700;
+}
+.bayes-mk-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+.bayes-mk-verdict {
+  display: grid;
+  gap: 4px;
+}
+.bayes-mk-mark {
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+.bayes-mk-card.is-right .bayes-mk-mark {
+  color: var(--ok);
+}
+.bayes-mk-card.is-wrong .bayes-mk-mark {
+  color: var(--bad);
+}
+.bayes-mk-svg {
+  display: block;
+  height: auto;
+}
+/* The state names may wrap so that all four columns stay visible in the right-hand panel. */
+.bayes-mk-table td.is-left {
+  white-space: normal;
+}
+.bayes-mk-table th {
+  white-space: normal;
+  vertical-align: bottom;
 }

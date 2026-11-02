@@ -10,7 +10,7 @@ import { Button, Callout, LinkButton, More } from '../../../ui/kit';
 import { PredictReveal } from '../../../ui/PredictReveal';
 import { Rich, TeX } from '../../../ui/Rich';
 import { href } from '../../../app/router';
-import { AxisLegend, ArmPicker, Kin3DView, ViewBar, triad, triadLabels, useArmChoice, useTween, type ArmRenderer, type Extra, type Label, type ViewMode } from './kin3dScene';
+import { AxisLegend, ArmPicker, Kin3DView, ViewBar, revealView, triad, triadLabels, useArmChoice, useTween, type ArmRenderer, type Extra, type Label, type ViewMode } from './kin3dScene';
 import {
   AXIS_VARS,
   SIGNED_AXES,
@@ -53,6 +53,9 @@ const I3 = [
 ];
 const COL_TEX = ['\\hat{x}_b', '\\hat{y}_b', '\\hat{z}_b'];
 
+/** A signed axis in brackets when negative, for products: (−ẑ_s) × (−x̂_s). */
+const par = (t: string) => (t.startsWith('-') ? `(${t})` : t);
+
 /** Typed cell → TeX for the live matrix (L2 → L_2; anything odd shown as a box). */
 function typedTeX(s: string): string {
   const t = s.replace(/\s+/g, '').replace(/[−–]/g, '-');
@@ -68,7 +71,9 @@ export default function BuildM() {
   const pending = useRef<((a: BuildApi) => void) | null>(null);
   const choiceRef = useRef(choice);
   choiceRef.current = choice;
+  const root = useRef<HTMLDivElement>(null);
   const apply = useCallback((armId: string, fn: (a: BuildApi) => void) => {
+    revealView(root.current);
     const c = choiceRef.current;
     if (c.id === armId) fn(api.current);
     else {
@@ -77,7 +82,7 @@ export default function BuildM() {
     }
   }, []);
   return (
-    <div className="kin3d">
+    <div className="kin3d" ref={root}>
       <div className="kin3d-toolbar">
         <ArmPicker choice={choice} />
         <span className="kin3d-sub">{choice.arm.source}</span>
@@ -356,7 +361,7 @@ function BuildInner({
               {[0, 1, 2].map((k) => (
                 <span key={k} className="kin3d-cells">
                   <input
-                    className={`kin3d-cell ${checked && pState[k] !== 'empty' ? `is-${pState[k]}` : ''}`}
+                    className={`kin3d-cell is-wide ${checked && pState[k] !== 'empty' ? `is-${pState[k]}` : ''}`}
                     value={pTyped[k]}
                     placeholder={`p${'xyz'[k]}`}
                     aria-label={`p ${'xyz'[k]} component`}
@@ -397,7 +402,7 @@ function BuildInner({
             )}
             {hand === 'left' && <Rich className="kin3d-explain" text="No real frame is left-handed, so one column has the wrong sign. Re-read the axis you are least sure of: usually the one drawn diagonally." />}
             {hand === 'degenerate' && <Rich className="kin3d-explain" text="Each {s} direction can be used by only one column: the three axes of {b} are perpendicular." />}
-            {cross01 && cols[2] && hand === 'right' && <Rich className="kin3d-explain" text={`Check: $\\hat x_b \\times \\hat y_b = ${signedAxisTeX(cols[0]!)} \\times ${signedAxisTeX(cols[1]!)} = ${signedAxisTeX(cross01)} = \\hat z_b$.`} />}
+            {cross01 && cols[2] && hand === 'right' && <Rich className="kin3d-explain" text={`Check: $\\hat x_b \\times \\hat y_b = ${par(signedAxisTeX(cols[0]!))} \\times ${par(signedAxisTeX(cols[1]!))} =${signedAxisTeX(cross01)} = \\hat z_b$.`} />}
             <div className="kin3d-row" style={{ marginTop: 8 }}>
               <Button variant="primary" size="sm" onClick={() => setChecked(true)}>
                 Check M
@@ -434,7 +439,7 @@ function BuildInner({
               text={[0, 1, 2]
                 .map((j) => (truth[j] ? `- $${COL_TEX[j]}$ points ${paperWords(truth[j]!.v, arm.view)}, so it is $${signedAxisTeX(truth[j]!.v)}$${drawnDiagonally(truth[j]!.v, arm.view) ? ' (drawn diagonally: this is the trap)' : ''}.` : ''))
                 .concat([
-                  `- Check: $\\hat x_b \\times \\hat y_b = ${signedAxisTeX(truth[0]!.v)} \\times ${signedAxisTeX(truth[1]!.v)} = ${signedAxisTeX(cross3(truth[0]!.v, truth[1]!.v))} = \\hat z_b$, so $\\det R = +1$.`,
+                  `- Check: $\\hat x_b \\times \\hat y_b = ${par(signedAxisTeX(truth[0]!.v))} \\times ${par(signedAxisTeX(truth[1]!.v))} =${signedAxisTeX(cross3(truth[0]!.v, truth[1]!.v))} = \\hat z_b$, so $\\det R = +1$.`,
                   `- $p = (${arm.p.map(linTeX).join(',\\ ')})$: the dashed walk goes along $\\hat x_s$, then $\\hat y_s$, then $\\hat z_s$ from {s} to the {b} origin.`,
                 ])
                 .join('\n')}
@@ -452,8 +457,8 @@ const PredictBlock = memo(function PredictBlock({ apply }: { apply: (armId: stri
       <PredictReveal
         id="kin-buildm-diagonal"
         question="In the 2023 figure (RPRR arm), $\hat y_b$ is drawn as a short arrow pointing up and to the right. $\hat x_s$ is drawn down-left. Which {s} direction is $\hat y_b$?"
-        options={['$-\\hat x_s$: into the page', '$+\\hat y_s$: to the right', '$+\\hat z_s$: up', '$+\\hat x_s$: out of the page']}
-        answer={0}
+        options={['$+\\hat y_s$: to the right', '$+\\hat x_s$: out of the page', '$-\\hat x_s$: into the page', '$+\\hat z_s$: up']}
+        answer={2}
         explain="On the paper the out-of-page axis $\hat x_s$ is drawn down-left, so the opposite direction, into the page, is drawn up-right: $\hat y_b = -\hat x_s$. Reading a diagonal arrow as 'right' or 'up' is the classic M mistake (the worked solution's check: $\hat x_b \times \hat y_b = (-\hat z_s) \times (-\hat x_s) = \hat y_s = \hat z_b$)."
         tryIt="press Show me: the camera swings round to look from above, and ŷ_b is seen pointing straight into the page."
         onApply={() => apply('rprr-2023', (a) => a.diagonal?.())}
@@ -461,8 +466,8 @@ const PredictBlock = memo(function PredictBlock({ apply }: { apply: (armId: stri
       <PredictReveal
         id="kin-buildm-cross"
         question="You have read $\hat x_b = -\hat z_s$ and $\hat y_b = -\hat x_s$ off the 2023 figure. Without looking at the figure again, what must $\hat z_b$ be?"
-        options={['$+\\hat y_s$', '$-\\hat y_s$', '$+\\hat x_s$', 'It cannot be found without the figure']}
-        answer={0}
+        options={['$-\\hat y_s$', '$+\\hat y_s$', '$+\\hat x_s$', 'It cannot be found without the figure']}
+        answer={1}
         explain="Frames are right-handed, so $\hat z_b = \hat x_b \times \hat y_b = (-\hat z_s) \times (-\hat x_s) = \hat z_s \times \hat x_s = \hat y_s$. Two columns fix the third; use this to fill or check the column you are least sure of, and to keep $\det R = +1$."
         tryIt="press Show me: the first two columns are filled and the cross product fills the third, with the det R check."
         onApply={() => apply('rprr-2023', (a) => a.cross?.())}
@@ -470,8 +475,8 @@ const PredictBlock = memo(function PredictBlock({ apply }: { apply: (armId: stri
       <PredictReveal
         id="kin-buildm-p"
         question="2024 camera boom: from the top of the post at $(0, 0, L_1)$, a short link goes right by $L_2$, then the boom runs **into the page** by $L_3$ to the camera {b}. $\hat x_s$ comes out of the page. What is $p$?"
-        options={['$(-L_3,\\ L_2,\\ L_1)$', '$(L_3,\\ L_2,\\ L_1)$', '$(0,\\ L_2 + L_3,\\ L_1)$', '$(L_2,\\ -L_3,\\ L_1)$']}
-        answer={0}
+        options={['$(L_3,\\ L_2,\\ L_1)$', '$(0,\\ L_2 + L_3,\\ L_1)$', '$(L_2,\\ -L_3,\\ L_1)$', '$(-L_3,\\ L_2,\\ L_1)$']}
+        answer={3}
         explain="Into the page is $-\hat x_s$, so the boom contributes $-L_3$ to $p_x$; right is $+\hat y_s$ ($L_2$) and up is $+\hat z_s$ ($L_1$): $p = (-L_3, L_2, L_1)$, as in the 2024 worked solution. The camera therefore sits *behind* the base along $\hat x_s$, which matters in part (c) when you work out the depth $Z$."
         tryIt="press Show me: the dashed walk from {s} to {b} is drawn, seen from the side so the into-the-page leg is visible."
         onApply={() => apply('prr-2024', (a) => a.pcomp?.())}

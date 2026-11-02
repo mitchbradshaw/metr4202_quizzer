@@ -3,7 +3,7 @@
 // Correct. The board shows the belief as circles (area ∝ probability); beside it are the exact hand-working
 // tables: each start's contributions (which add on a shared tile), and prior × likelihood = product, Σ = P(z),
 // product ÷ P(z) = posterior. "Exam preset" reproduces the 2024 worked solution.
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ExploreItem } from '../../../engine/types';
 import { MAP_2024_Q28, cellLabel, type ColourSensor, type MoveOutcome, type Tile, type TileMap } from '../../../core/gridloc';
 import { beliefOn, gridCorrectTable, gridPredictTable, ranked, type CorrectTable, type PredictTable } from '../../../core/bayestables';
@@ -12,8 +12,8 @@ import { Button, More, Readout, Readouts, Segmented, Slider } from '../../../ui/
 import { PredictReveal } from '../../../ui/PredictReveal';
 import { Rich } from '../../../ui/Rich';
 import { useRaf } from '../../../anim/hooks';
-import { BayesLayout, HandTable, Panel, f2, f4, revealVisual, useTween } from './common';
-import { Stencil, TB, TileBoard, inkOn, tbCx, tbCy, tbY } from './tileBoard';
+import { BayesLayout, HandTable, NumCell, Panel, f2, f4, fLik, revealVisual, useTween } from './common';
+import { TB, TileBoard, inkOn, tbCx, tbCy, tbX, tbY } from './tileBoard';
 import { moveName } from '../solve/common';
 
 export const meta: Omit<ExploreItem, 'component'> = {
@@ -86,10 +86,32 @@ export default function GridWorld() {
   const step = snap.step;
   const lastPredict = [...hist].reverse().find((s) => s.step?.kind === 'predict')?.step as Extract<Step, { kind: 'predict' }> | undefined;
   const lastCorrect = [...hist].reverse().find((s) => s.step?.kind === 'correct')?.step as Extract<Step, { kind: 'correct' }> | undefined;
+  /** Time index of the latest prediction (1 for the first move), for the x_{t-1} → x_t labels of its table. */
+  const nPredict = hist.filter((s) => s.step?.kind === 'predict').length;
+  // A reading that the camera model makes impossible here (P(z) = 0, e.g. a perfect camera that "sees" black
+  // when every possible tile is white) cannot be corrected with: Bayes' rule would divide by zero.
+  const pzNow = useMemo(() => gridCorrectTable(map, snap.bel, z, sensor).evidence, [map, snap, z, sensor]);
+  const impossible = !(pzNow > 0);
 
   // Refs so that queued steps use the latest settings.
   const live = useRef({ map, moves, sensor, z });
   live.current = { map, moves, sensor, z };
+
+  // Editing the action or the camera re-runs the steps already taken (without animating them), so the board and
+  // the tables answer "what if the slip were bigger / the camera worse?" at once.
+  const skipAnim = useRef(false);
+  const mounted = useRef(false);
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
+    setHist((h) => {
+      if (h.length < 2) return h;
+      skipAnim.current = true;
+      return replay(live.current.map, h, moves, sensor);
+    });
+  }, [moves, sensor]);
 
   const restart = (m = map, st = starts) => {
     queue.current = [];
@@ -134,7 +156,11 @@ export default function GridWorld() {
       m.tiles[r][c] = m.tiles[r][c] === 1 ? 0 : 1;
       setMap(m);
       // Colours only matter to the correction, so keep the belief; redo the steps on the new map.
-      setHist((h) => replay(m, h, live.current.moves, live.current.sensor));
+      setHist((h) => {
+        if (h.length < 2) return h;
+        skipAnim.current = true;
+        return replay(m, h, live.current.moves, live.current.sensor);
+      });
     } else {
       const has = starts.some((s) => s.c === c && s.r === r);
       const st = has ? starts.filter((s) => !(s.c === c && s.r === r)) : [...starts, { c, r }].sort((a, b) => a.r - b.r || a.c - b.c);
@@ -167,6 +193,10 @@ export default function GridWorld() {
   useLayoutEffect(() => {
     if (animated.current === snap) return;
     animated.current = snap;
+    if (skipAnim.current) {
+      skipAnim.current = false;
+      return;
+    }
     if (!step || !prevBel) return;
     busyUntil.current = Math.max(busyUntil.current, performance.now() + 900);
     if (step.kind === 'predict') {
@@ -240,12 +270,35 @@ export default function GridWorld() {
               stroke={black ? 'var(--bayes-white)' : 'var(--surface)'}
               strokeWidth={1.2}
             />
-            <text x={tbCx(cell.c)} y={tbY(cell.r) + TB.cell - 3} textAnchor="middle" className="bayes-board-small" fill={inkOn(black)}>
+            <text
+              x={tbCx(cell.c)}
+              y={tbY(cell.r) + TB.cell - 3}
+              textAnchor="middle"
+              className="bayes-board-small"
+              fill={inkOn(black)}
+              stroke={black ? 'var(--bayes-black)' : 'var(--bayes-white)'}
+              strokeWidth={3}
+              paintOrder="stroke"
+            >
               {Number(cell.p.toFixed(4))}
             </text>
           </g>
         );
       })}
+      {/* after a correction: the likelihood each tile was multiplied by, P(z | its colour) */}
+      {step?.kind === 'correct' &&
+        step.table.rows.map((row) => {
+          const black = row.tile === 1;
+          const txt = `×${fLik(row.lik)}`;
+          return (
+            <g key={`lk${row.c},${row.r}`}>
+              <rect x={tbX(row.c) + 1.5} y={tbY(row.r) + 1.5} width={txt.length * 5.6 + 4} height={11} rx={2} fill={black ? 'var(--bayes-black)' : 'var(--bayes-white)'} stroke="var(--text-3)" strokeWidth={0.8} />
+              <text x={tbX(row.c) + 3.5} y={tbY(row.r) + 10} className="bayes-board-small" fill={inkOn(black)}>
+                {txt}
+              </text>
+            </g>
+          );
+        })}
       {step?.kind === 'predict' &&
         step.table.contributions
           .filter((k) => k.toC >= 0)
@@ -299,7 +352,7 @@ export default function GridWorld() {
         <Button variant="primary" onClick={predict} title="Prediction: push the belief through the action's transition probabilities">
           ▶ Predict (move)
         </Button>
-        <Button className="bayes-suggest" onClick={() => correct()} title="Correction with the camera reading chosen on the right">
+        <Button className="bayes-suggest" onClick={() => correct()} disabled={impossible} title={impossible ? `P(z = ${zName}) = 0 here: no tile the robot can be on could give this reading` : 'Correction with the camera reading chosen on the right'}>
           Correct: camera sees {zName}
         </Button>
         <Segmented
@@ -319,9 +372,21 @@ export default function GridWorld() {
           ↺ Restart
         </Button>
       </div>
+      {impossible && (
+        <Rich
+          className="small bayes-warn"
+          text={`**$P(z = \\text{${zName}}) = 0$:** with this camera model no tile the robot can be on gives “${zName}”, so this reading cannot be used (Bayes’ rule would divide by zero). A real camera keeps a small error rate for exactly this reason.`}
+        />
+      )}
       <Rich
         className="small muted"
-        text={`Circles: area ∝ probability (number under each). ${step ? (step.kind === 'predict' ? 'Orange arrows: where each start’s probability went in the last prediction.' : `Last step: correction with $z$ = ${colour(step.z)}.`) : 'Start: equal probability on the start tiles.'} Moves off the map leave the robot where it is.`}
+        text={`Circles: area ∝ probability (number under each). ${
+          step
+            ? step.kind === 'predict'
+              ? 'Orange arrows: where each start’s probability went in the last prediction.'
+              : `Last step: correction with $z$ = ${colour(step.z)}. Each tile’s probability was multiplied by $P(z \\mid \\text{its colour})$ (the × tags), then divided by $P(z)$ = ${f4(step.table.evidence)}.`
+            : 'Start: equal probability on the start tiles.'
+        } Moves off the map leave the robot where it is.`}
       />
     </div>
   );
@@ -335,20 +400,14 @@ export default function GridWorld() {
             <div className="bayes-stencil-grid" role="group" aria-label="Transition stencil: probability of ending in each neighbouring tile">
               {stencil.map((row, r) =>
                 row.map((v, c) => (
-                  <input
+                  <NumCell
                     key={`${r}${c}`}
                     className={`bayes-stencil-input ${v > 0 ? 'is-on' : ''} ${r === 1 && c === 1 ? 'is-centre' : ''}`}
-                    type="number"
-                    min={0}
-                    max={1}
+                    value={v}
                     step={0.05}
-                    value={Number(v.toFixed(3))}
-                    aria-label={`P(${moveName(c - 1, r - 1)})`}
-                    title={moveName(c - 1, r - 1)}
-                    onChange={(e) => {
-                      const val = Math.max(0, Math.min(1, Number(e.target.value) || 0));
-                      setStencil((s) => s.map((rr, i) => rr.map((x, j) => (i === r && j === c ? val : x))));
-                    }}
+                    label={`P(${moveName(c - 1, r - 1)})`}
+                    title={`${moveName(c - 1, r - 1)} (type a probability; ↑ ↓ step by 0.05)`}
+                    onCommit={(val) => setStencil((s) => s.map((rr, i) => rr.map((x, j) => (i === r && j === c ? val : x))))}
                   />
                 ))
               )}
@@ -359,7 +418,7 @@ export default function GridWorld() {
             </div>
           </div>
           <div className="bayes-stencil-side">
-            <Stencil moves={moves} size={104} />
+            <div className="bayes-label">Presets</div>
             <div className="bayes-col-btns">
               {STENCILS.map((s) => (
                 <Button key={s.id} size="sm" variant="ghost" onClick={() => setStencil(s.s)}>
@@ -375,7 +434,7 @@ export default function GridWorld() {
       </Panel>
 
       <Panel title={lastPredict ? 'Prediction: contributions' : 'Prediction'} live>
-        {lastPredict ? <PredictTableView t={lastPredict.table} /> : <p className="small muted">Press Predict to push the start probabilities through the action.</p>}
+        {lastPredict ? <PredictTableView t={lastPredict.table} k={nPredict} /> : <p className="small muted">Press Predict to push the start probabilities through the action.</p>}
       </Panel>
 
       <Panel title={lastCorrect ? `Correction: the camera saw ${colour(lastCorrect.z)}` : 'Correction'} live>
@@ -492,7 +551,7 @@ export default function GridWorld() {
             text={`- Columns are letters (A = left), rows are numbers (1 = top), so C3 is column C, row 3, and **up** moves towards row 1.
 - Prediction: $P(x_1) = \\sum_{x_0} p(x_1 \\mid u_1, x_0) P(x_0)$; outcomes that would leave the map leave the robot where it is.
 - Correction: $P(x_1 \\mid z_1) = P(z_1 \\mid x_1) P(x_1) / P(z_1)$ with $P(z_1) = \\sum_{x_1} P(z_1 \\mid x_1) P(x_1)$. Only cells with non-zero predicted probability need a row.
-- Editing a colour re-runs the steps already taken on the new map; editing the start tiles starts again.`}
+- Editing a colour, the transition probabilities or the camera re-runs the steps already taken with the new numbers, so you can watch every table respond; editing the start tiles starts again.`}
           />
         </More>
       }
@@ -528,7 +587,7 @@ function replay(m: TileMap, h: Snap[], moves: MoveOutcome[], sensor: ColourSenso
   return out;
 }
 
-function PredictTableView({ t }: { t: PredictTable }) {
+function PredictTableView({ t, k }: { t: PredictTable; k: number }) {
   const shared = t.cells.filter((c) => c.parts.length > 1);
   return (
     <div className="bayes-table-wrap">
@@ -537,7 +596,7 @@ function PredictTableView({ t }: { t: PredictTable }) {
           <tr>
             <th className="is-left">from</th>
             <th>
-              <Rich text="$bel(x_0)$" inline />
+              <Rich text={`$bel(x_${k - 1})$`} inline />
             </th>
             <th className="is-left">outcome</th>
             <th className="is-left">to</th>
@@ -570,7 +629,7 @@ function PredictTableView({ t }: { t: PredictTable }) {
       </table>
       <p className="small bayes-tight">
         <Rich
-          text={`$\\overline{bel}(x_1)$: ${t.cells.map((c) => `**${c.label}** ${Number(c.p.toFixed(4))}`).join(', ')}.${
+          text={`$\\overline{bel}(x_${k})$: ${t.cells.map((c) => `**${c.label}** ${Number(c.p.toFixed(4))}`).join(', ')}.${
             shared.length ? ` ${shared.map((c) => `${c.label} = ${c.parts.map((p) => Number(p.mass.toFixed(4))).join(' + ')} = ${Number(c.p.toFixed(4))}`).join('; ')} (contributions add).` : ''
           }`}
           inline

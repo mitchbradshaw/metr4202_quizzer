@@ -8,7 +8,7 @@ export const mcqs: MCQ[] = [
   {
     id: 'kin-q-not-fk',
     style: 'incorrect',
-    stem: 'Each option describes a problem. Which one is NOT a forward kinematics problem?',
+    stem: 'Each option is offered as an example of a **forward kinematics** problem. One of them is NOT forward kinematics: which?',
     options: [
       {
         text: 'Finding the joint angles that place an arm’s end-effector at a desired pose',
@@ -31,7 +31,7 @@ export const mcqs: MCQ[] = [
         why: 'Forward: the inputs are known and are integrated through the motion model to give the pose.',
       },
     ],
-    source: 'Recurring: 2023 Q11 (mirrored in 2024 Q12, 2025 Q12)',
+    source: 'Recurring: 2023 Q11 (the NOT form), 2024 Q12, 2025 Q12',
     trapId: 'read-the-stem',
     difficulty: 1,
   },
@@ -61,7 +61,7 @@ export const mcqs: MCQ[] = [
         why: 'Forward: known inputs are integrated through the motion model to give the pose.',
       },
     ],
-    source: 'Recurring: 2024 Q12 (mirror of 2023 Q11)',
+    source: 'Recurring: 2024 Q12 (the IK form), 2023 Q11, 2025 Q12',
     difficulty: 1,
   },
   {
@@ -90,7 +90,7 @@ export const mcqs: MCQ[] = [
         why: 'Forces and torques belong to statics and dynamics, not kinematics.',
       },
     ],
-    source: 'Recurring: 2025 Q12; review deck slide 19',
+    source: 'Recurring: 2025 Q12 (the FK form), 2023 Q11, 2024 Q12; review deck slide 19',
     difficulty: 1,
   },
   {
@@ -244,7 +244,7 @@ export const mcqs: MCQ[] = [
   {
     id: 'kin-q-rotation',
     style: 'incorrect',
-    stem: 'About rotation matrices and other ways of representing orientation, which statement is FALSE?',
+    stem: 'About rotation matrices and other ways of representing orientation:',
     options: [
       {
         text: 'Any 3 × 3 matrix with determinant 1 is a rotation matrix',
@@ -333,7 +333,7 @@ export const mcqs: MCQ[] = [
   {
     id: 'kin-q-prismatic',
     style: 'incorrect',
-    stem: 'About the screw axis of a prismatic joint, which statement is FALSE?',
+    stem: 'About the screw axis of a prismatic joint:',
     options: [
       {
         text: 'Its $v$ is $-\\omega \\times q$ for a point $q$ on the joint, exactly as for a revolute joint',
@@ -456,7 +456,7 @@ export const mcqs: MCQ[] = [
   {
     id: 'kin-q-poe-order',
     style: 'incorrect',
-    stem: 'About the space-form product of exponentials $T(\\theta) = e^{[\\mathcal{S}_1]\\theta_1} \\cdots e^{[\\mathcal{S}_n]\\theta_n} M$, which statement is FALSE?',
+    stem: 'About the space-form product of exponentials $T(\\theta) = e^{[\\mathcal{S}_1]\\theta_1} \\cdots e^{[\\mathcal{S}_n]\\theta_n} M$:',
     options: [
       {
         text: 'The exponentials may be multiplied in any order, since every $\\mathcal{S}_i$ is written in the same fixed frame',
@@ -515,7 +515,7 @@ export const mcqs: MCQ[] = [
   {
     id: 'kin-q-singularity',
     style: 'incorrect',
-    stem: 'About kinematic singularities, which statement is FALSE?',
+    stem: 'About kinematic singularities:',
     options: [
       {
         text: 'They can be avoided by choosing suitable base and end-effector frames',
@@ -578,7 +578,7 @@ export const mcqs: MCQ[] = [
   {
     id: 'kin-q-jacobian-rank',
     style: 'incorrect',
-    stem: 'About the geometric Jacobian, which statement is FALSE?',
+    stem: 'About the geometric Jacobian:',
     options: [
       {
         text: 'An RP arm with $x = (L_1 + L_2 + \\theta_2)\\cos\\theta_1$, $y = (L_1 + L_2 + \\theta_2)\\sin\\theta_1$, $\\phi = \\theta_1$ loses rank at $\\theta_2 = 0$',

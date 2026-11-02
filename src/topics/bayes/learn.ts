@@ -80,7 +80,7 @@ export const cards: ConceptCard[] = [
       },
       {
         title: 'Marginalising without the weights',
-        detail: 'Each term must be weighted by the probability of its case, ${P(z) = \\sum_x P(z \\mid x)\\,P(x)}$. With a belief of 0.9 on a white tile and 0.1 on a black one, seeing white has ${P(z) = 0.9(0.90) + 0.1(0.17) = 0.827}$, not the plain average $(0.90 + 0.17)/2 = 0.535$.',
+        detail: 'Each term must be weighted by the probability of its case, ${P(z) = \\sum_x P(z \\mid x)\\,P(x)}$. With a belief of 0.9 on a white tile and 0.1 on a black one, seeing white has ${P(z) = 0.9(0.90) + 0.1(0.17) = 0.827}$, not the plain average $(0.90 + 0.17)/2 = 0.535$. (2024 Q28(b) also came to 0.535, but only because its predicted belief happened to be split 0.5 / 0.5 between black and white tiles.)',
         source: '2024 Q28(b)',
       },
       {

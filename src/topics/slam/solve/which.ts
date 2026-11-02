@@ -30,45 +30,46 @@ function problemPart(sc: Scenario, label: string, marks: number): ChoicePart {
   };
 }
 
+// Original wording; each mirrors one past MCQ (cited in `source`).
 const FACTS: { stem: string; options: { text: string; correct: boolean; why: string }[]; source: string }[] = [
   {
-    stem: 'SLAM solves for:',
-    source: '2024 Q8',
+    stem: 'What does a SLAM algorithm estimate?',
+    source: 'Like 2024 Q8',
     options: [
-      { text: 'Only the robot pose', correct: false, why: 'That is localisation, which needs the map to be given.' },
-      { text: 'Only the map', correct: false, why: 'That is mapping, which needs the pose to be given.' },
-      { text: 'Both the robot pose and the map', correct: true, why: 'Simultaneous localisation and mapping: neither is given, so both are estimated together.' },
-      { text: 'Only the sensor likelihood', correct: false, why: 'The sensor model $p(z \\mid x, m)$ is an input to SLAM, not what it estimates.' },
+      { text: 'The robot’s pose, against a map it is given', correct: false, why: 'That is localisation, which needs the map to be given.' },
+      { text: 'The map, from poses it is given', correct: false, why: 'That is mapping, which needs the pose to be given.' },
+      { text: 'The robot’s pose and the map, together', correct: true, why: 'Simultaneous localisation and mapping: neither is given, so both are estimated together.' },
+      { text: 'The likelihood model of its sensor', correct: false, why: 'The sensor model $p(z \\mid x, m)$ is an input to SLAM, not what it estimates.' },
     ],
   },
   {
-    stem: '**Online** SLAM solves for:',
-    source: '2025 Q8',
+    stem: 'What does **online** SLAM estimate?',
+    source: 'Like 2025 Q8',
     options: [
-      { text: 'Only the map', correct: false, why: 'SLAM always estimates the pose too.' },
-      { text: 'Only the current robot pose', correct: false, why: 'That is localisation (with a known map).' },
-      { text: 'Both the current robot pose and the map', correct: true, why: 'Online SLAM: $p(x_t, m \\mid z_{1:t}, u_{1:t})$, the current pose only, updated as data arrive (e.g. EKF-SLAM).' },
-      { text: 'The full robot trajectory and the map', correct: false, why: 'That is **full** SLAM, $p(x_{1:t}, m \\mid z_{1:t}, u_{1:t})$ (e.g. graph SLAM).' },
+      { text: 'The map on its own', correct: false, why: 'SLAM always estimates the pose too.' },
+      { text: 'The robot’s latest pose on its own', correct: false, why: 'That is localisation (with a known map).' },
+      { text: 'The robot’s latest pose together with the map', correct: true, why: 'Online SLAM: $p(x_t, m \\mid z_{1:t}, u_{1:t})$, the current pose only, updated as data arrive (e.g. EKF-SLAM).' },
+      { text: 'Every pose along the path, together with the map', correct: false, why: 'That is **full** SLAM, $p(x_{1:t}, m \\mid z_{1:t}, u_{1:t})$ (e.g. graph SLAM).' },
     ],
   },
   {
-    stem: '**Full** SLAM solves for:',
+    stem: 'What does **full** SLAM estimate?',
     source: 'Review deck slide 9; summary notes §4',
     options: [
-      { text: 'Only the current robot pose', correct: false, why: 'That is localisation.' },
-      { text: 'The current robot pose and the map', correct: false, why: 'That is **online** SLAM; full SLAM keeps every past pose.' },
-      { text: 'The whole robot trajectory and the map', correct: true, why: 'Full SLAM: $p(x_{1:t}, m \\mid z_{1:t}, u_{1:t})$. Graph SLAM solves it by optimising all poses at once, which is how a loop closure can move old poses.' },
-      { text: 'Only the map, given the trajectory', correct: false, why: 'That is mapping with known poses.' },
+      { text: 'The robot’s latest pose on its own', correct: false, why: 'That is localisation.' },
+      { text: 'The robot’s latest pose together with the map', correct: false, why: 'That is **online** SLAM; full SLAM keeps every past pose.' },
+      { text: 'Every pose along the path, together with the map', correct: true, why: 'Full SLAM: $p(x_{1:t}, m \\mid z_{1:t}, u_{1:t})$. Graph SLAM solves it by optimising all poses at once, which is how a loop closure can move old poses.' },
+      { text: 'The map, given the whole path', correct: false, why: 'That is mapping with known poses.' },
     ],
   },
   {
-    stem: 'When does a navigating mobile robot need to solve the SLAM problem?',
-    source: '2023 Q8',
+    stem: 'A mobile robot has to solve SLAM to navigate when…',
+    source: 'Like 2023 Q8',
     options: [
-      { text: 'When it only knows its pose', correct: false, why: 'Known pose, unknown map: mapping.' },
-      { text: 'When it only knows the map', correct: false, why: 'Known map, unknown pose: localisation.' },
-      { text: 'When it knows both its pose and the map', correct: false, why: 'Nothing to estimate: it just plans.' },
-      { text: 'When it knows neither its pose nor the map', correct: true, why: 'Both unknown: it must estimate them together.' },
+      { text: '…its pose is known but the map is not', correct: false, why: 'Known pose, unknown map: mapping.' },
+      { text: '…the map is known but its pose is not', correct: false, why: 'Known map, unknown pose: localisation.' },
+      { text: '…both its pose and the map are known', correct: false, why: 'Nothing to estimate: it just plans.' },
+      { text: '…neither its pose nor the map is known', correct: true, why: 'Both unknown: it must estimate them together.' },
     ],
   },
 ];

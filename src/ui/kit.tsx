@@ -179,11 +179,81 @@ export interface SliderProps {
   disabled?: boolean;
   /** Optional formatter for the shown value. */
   format?: (v: number) => string;
+  /** Label on its own line above the track (long TeX labels in narrow panels). */
+  stacked?: boolean;
 }
 
 const LOG_STEPS = 1000;
 
-export function Slider({ label, tex, tip, value, min, max, step, log, unit, sig = 3, onChange, disabled, format }: SliderProps) {
+/**
+ * A number box that tolerates half-typed values ("0.", "-", "1e") while editing, so decimals below 1 can be
+ * typed; it reports a value only when the text parses (and lies within [min, max]). Enter or blur tidies it.
+ */
+export function NumField({
+  value,
+  onChange,
+  min,
+  max,
+  step = 0.01,
+  label,
+  sig = 6,
+  disabled,
+  className = '',
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  label: string;
+  sig?: number;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const shown = draft ?? (Number.isFinite(value) ? String(Number(value.toPrecision(sig))) : '');
+  const parse = (s: string) => {
+    const v = Number(s.trim().replace(',', '.'));
+    return s.trim() !== '' && Number.isFinite(v) ? v : NaN;
+  };
+  const inRange = (v: number) => !Number.isNaN(v) && (min === undefined || v >= min) && (max === undefined || v <= max);
+  const invalid = draft !== null && !inRange(parse(draft));
+  const nudge = (dir: 1 | -1) => {
+    const base = Number.isFinite(value) ? value : 0;
+    let v = Number((base + dir * step).toPrecision(12));
+    if (min !== undefined) v = Math.max(min, v);
+    if (max !== undefined) v = Math.min(max, v);
+    setDraft(null);
+    onChange(v);
+  };
+  return (
+    <input
+      className={`num-field ${invalid ? 'is-invalid' : ''} ${className}`}
+      type="text"
+      inputMode="decimal"
+      aria-label={label}
+      aria-invalid={invalid || undefined}
+      value={shown}
+      disabled={disabled}
+      onChange={(e) => {
+        const s = e.target.value;
+        setDraft(s);
+        const v = parse(s);
+        if (inRange(v)) onChange(v);
+      }}
+      onBlur={() => setDraft(null)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+        else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          nudge(e.key === 'ArrowUp' ? 1 : -1);
+        }
+      }}
+    />
+  );
+}
+
+export function Slider({ label, tex, tip, value, min, max, step, log, unit, sig = 3, onChange, disabled, format, stacked }: SliderProps) {
   const id = useId();
   const toPos = (v: number) => (log ? (Math.log(v / min) / Math.log(max / min)) * LOG_STEPS : v);
   const fromPos = (p: number) => (log ? min * Math.pow(max / min, p / LOG_STEPS) : p);
@@ -197,7 +267,7 @@ export function Slider({ label, tex, tip, value, min, max, step, log, unit, sig 
     setEditing(false);
   };
   return (
-    <div className={`slider ${disabled ? 'is-disabled' : ''}`}>
+    <div className={`slider ${disabled ? 'is-disabled' : ''} ${stacked ? 'is-stacked' : ''}`}>
       <label htmlFor={id} className="slider-label">
         {tex && (tip ? <Sym tex={tex} tip={tip} /> : <TeX>{tex}</TeX>)}
         <span>{label}</span>

@@ -14,13 +14,15 @@ interface Story {
   sx: string;
   sy: string;
   scene: string;
+  /** True when y is a sensor reading of x, so P(y | x) is a sensor model. */
+  sensor: boolean;
 }
 
 const STORIES: Story[] = [
-  { x: 'door', notX: 'wall', y: 'sensor reads “door”', notY: 'sensor reads “wall”', sx: 'd', sy: 's', scene: 'A robot drives along a corridor. At each cell it is either beside a door or a plain wall, and its door sensor reports “door” or “wall”' },
-  { x: 'occupied', notX: 'free', y: 'lidar returns a hit', notY: 'no hit', sx: 'm', sy: 'h', scene: 'An occupancy-mapping robot looks at one grid cell, which is occupied or free; its lidar either returns a hit there or not' },
-  { x: 'wet floor', notX: 'dry floor', y: 'wheels slip', notY: 'no slip', sx: 'w', sy: 'k', scene: 'A cleaning robot logs whether the floor is wet and whether its wheels slipped on each run' },
-  { x: 'battery low', notX: 'battery fine', y: 'motor slow', notY: 'motor normal', sx: 'b', sy: 'v', scene: 'A delivery robot logs its battery state and whether its drive motor ran slow on each trip' },
+  { x: 'door', notX: 'wall', y: 'sensor reads “door”', notY: 'sensor reads “wall”', sx: 'd', sy: 's', sensor: true, scene: 'A robot drives along a corridor. At each cell it is either beside a door or a plain wall, and its door sensor reports “door” or “wall”' },
+  { x: 'occupied', notX: 'free', y: 'lidar returns a hit', notY: 'no hit', sx: 'm', sy: 'h', sensor: true, scene: 'An occupancy-mapping robot looks at one grid cell, which is occupied or free; its lidar either returns a hit there or not' },
+  { x: 'wet floor', notX: 'dry floor', y: 'wheels slip', notY: 'no slip', sx: 'w', sy: 'k', sensor: false, scene: 'A cleaning robot logs whether the floor is wet and whether its wheels slipped on each run' },
+  { x: 'battery low', notX: 'battery fine', y: 'motor slow', notY: 'motor normal', sx: 'b', sy: 'v', sensor: false, scene: 'A delivery robot logs its battery state and whether its drive motor ran slow on each trip' },
 ];
 
 interface CondStmt {
@@ -100,7 +102,7 @@ function buildRules(spec: RulesSpec, tier: Tier): SolveInstance {
   const pyxPart: NumericPart = {
     kind: 'numeric',
     id: 'pygx',
-    label: `The sensor model $P(${Y} \\mid ${X})$`,
+    label: s.sensor ? `Condition: the sensor model $P(${Y} \\mid ${X})$` : `Condition: $P(${Y} \\mid ${X})$, the probability of “${s.y}” given “${s.x}”`,
     answer: PyGx,
     unit: '',
     tol: 0.004,
@@ -179,7 +181,7 @@ function buildRules(spec: RulesSpec, tier: Tier): SolveInstance {
       id: 'cond',
       label: `Suppose $${c.given}$. ${c.question}`,
       options: [
-        { text: 'dependent', correct: false, why: `The equation says $${c.b}$ adds nothing once $${c.c}$ is known, which is a statement of (conditional) independence, not dependence.` },
+        { text: 'dependent', correct: false, why: `Without knowing $${c.c}$ they usually are dependent, but that is not what the equation states. It says that once $${c.c}$ is known, $${c.b}$ adds nothing about $${c.a}$: a statement of conditional independence.` },
         { text: 'independent', correct: false, why: `Independence would be $P(${c.a} \\mid ${c.b}) = P(${c.a})$ with nothing else given. Here $${c.c}$ stays on both sides: they may well be dependent when $${c.c}$ is unknown.` },
         { text: `conditionally independent given $${c.c}$`, correct: true, why: `$P(a \\mid b, c) = P(a \\mid c)$ is the definition: once $${c.c}$ is known, $${c.b}$ tells you nothing more about $${c.a}$. This is exactly what the Markov assumption claims.` },
       ],

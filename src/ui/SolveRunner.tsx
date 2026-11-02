@@ -178,7 +178,7 @@ export function SolveRunner({
         <Badge tone="accent">{TIER_LABEL[tier]}</Badge>
         <Badge title="Replay this exact problem with the same seed">seed {seed}</Badge>
         <Rich text={gen.source} inline className="muted small" />
-        {!exam && <PaceTimer marks={gen.marks ?? inst.parts.reduce((t, q) => t + partMarks(q), 0)} pkey={base} />}
+        {!exam && <PaceTimer marks={Math.min(gen.marks ?? Infinity, inst.parts.reduce((t, q) => t + partMarks(q), 0))} pkey={base} />}
       </div>
       <Rich text={inst.prompt} />
       {inst.givens && inst.givens.length > 0 && (
@@ -198,6 +198,7 @@ export function SolveRunner({
           </tbody>
         </table>
       )}
+      <div className={inst.figure && inst.layout === 'side' ? 'solve-side' : undefined}>
       {inst.figure && (
         <div className="solve-figure">
           <inst.figure />
@@ -222,6 +223,7 @@ export function SolveRunner({
           );
         })}
       </ol>
+      </div>
 
       <div className="hints">
         <div className="row gap-s wrap">

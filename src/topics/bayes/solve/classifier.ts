@@ -216,7 +216,10 @@ export function buildClassifierInstance(spec: ClassifierSpec, tier: Tier): Solve
     const pz: NumericPart = {
       kind: 'numeric',
       id: `pz${k + 1}`,
-      label: `(a) ${ord[k][0].toUpperCase()}${ord[k].slice(1)} detection (${zName(d)}): the total probability $P(z_${k + 1} = ${tx(zName(d))})$`,
+      label:
+        k === 0
+          ? `(a) First detection (${zName(d)}): the total probability $P(z_1 = ${tx(zName(d))})$`
+          : `(a) ${ord[k][0].toUpperCase()}${ord[k].slice(1)} detection (${zName(d)}): the total probability given the earlier frames, $P(z_${k + 1} = ${tx(zName(d))} \\mid ${k === 1 ? 'z_1' : `z_{1:${k}}`})$`,
       answer: t.evidence,
       unit: '',
       tol: 0.004,
@@ -236,7 +239,7 @@ export function buildClassifierInstance(spec: ClassifierSpec, tier: Tier): Solve
       id: `post${k + 1}`,
       label: `(a) The updated belief after the ${ord[k]} detection, $P(x \\mid z_{1${k > 0 ? `:${k + 1}` : ''}})$`,
       answer,
-      rowLabels: Lt.map((l) => tx(l)),
+      rowLabels: Lt.slice(),
       colLabels: ['posterior'],
       absTol: 0.002,
       traps: matrixTraps(answer, [

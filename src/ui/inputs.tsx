@@ -77,7 +77,7 @@ export function NumericInput({ part, onResult, disabled, pkey }: { part: Numeric
           inputMode="decimal"
           value={raw}
           disabled={disabled}
-          placeholder="e.g. 12.5, 2*pi*50 or 3.1 Hz"
+          placeholder="e.g. 4.6 or 0.05*1.7/4.6"
           aria-label="Your answer"
           onChange={(e) => setRaw(e.target.value)}
           onKeyDown={onKey}
@@ -272,7 +272,10 @@ export function OrderInput({ part, onResult, disabled, seed, pkey }: { part: Ord
 // ------------------------------------------------------------------ choice
 
 export function ChoiceInput({ part, onResult, disabled, seed, pkey }: { part: ChoicePart; onResult: (r: PartResult) => void; disabled?: boolean; seed: number; pkey?: string }) {
-  const order = useMemo(() => makeRng(seed ^ hashString(part.id)).shuffle(part.options.map((_, i) => i)), [part, seed]);
+  const order = useMemo(
+    () => (part.fixedOrder ? part.options.map((_, i) => i) : makeRng(seed ^ hashString(part.id)).shuffle(part.options.map((_, i) => i))),
+    [part, seed]
+  );
   const [sel, setSel] = usePersisted<number[]>(pkey && `${pkey}:sel`, []);
   const [checked, setChecked] = usePersisted<Verdict | null>(pkey && `${pkey}:checked`, null);
   const toggle = (i: number) => {
@@ -286,7 +289,7 @@ export function ChoiceInput({ part, onResult, disabled, seed, pkey }: { part: Ch
   };
   return (
     <div className="part-input">
-      <div className="options" role={part.multi ? 'group' : 'radiogroup'}>
+      <div className={`options ${part.compact ? 'options-compact' : ''}`} role={part.multi ? 'group' : 'radiogroup'}>
         {order.map((i) => {
           const o = part.options[i];
           const on = sel.includes(i);

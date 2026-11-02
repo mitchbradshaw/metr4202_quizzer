@@ -10,7 +10,7 @@ import { Rich, TeX } from '../../../ui/Rich';
 import { usePersisted } from '../../../ui/persist';
 import { completeChallenge, useProgress } from '../../../app/store';
 import { POSTERIOR, PROBLEM_LABEL, SCENARIOS, problemOf, scenarioById, type Known, type Problem, type SlamKind } from './whichData';
-import { revealEl } from './slamCommon';
+import { revealEl, useStickyFit } from './slamCommon';
 
 export const meta: Omit<ExploreItem, 'component'> = {
   id: 'which-problem',
@@ -59,6 +59,7 @@ export default function WhichProblem() {
   const [sel, setSel] = usePersisted<string>('slam-which:sel', SCENARIOS[0].id);
   const [marks, setMarks] = usePersisted<Marks>('slam-which:marks', {});
   const leftRef = useRef<HTMLDivElement>(null);
+  const unstuck = useStickyFit(leftRef);
   const challengeDone = !!useProgress().challenges[CHALLENGE_ID];
   const sc = scenarioById(sel);
   const mk = marks[sc.id] ?? {};
@@ -87,7 +88,7 @@ export default function WhichProblem() {
 
   // ---------------------------------------------------------------- the table + posterior builder
   const left = (
-    <div className="slam-left slam-panel" ref={leftRef}>
+    <div className={`slam-left slam-panel${unstuck ? ' is-unstuck' : ''}`} ref={leftRef}>
       <PosteriorBuilder pose={mk.pose} map={mk.map} slam={mk.slam} />
       <div className="slam-which-table" role="table" aria-label="What is unknown decides the problem">
         <div className="slam-which-corner" role="columnheader" />

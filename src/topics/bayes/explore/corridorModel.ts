@@ -43,9 +43,11 @@ export interface Params {
   ends: CorridorEnds;
 }
 
+// A good sensor and modest slip: with these the robot usually localises within one lap of the three-door loop
+// (the self-tests measure it), while the motion noise still visibly blurs the belief at every prediction.
 export const DEFAULT_PARAMS: Params = {
-  motion: { under: 0.1, exact: 0.8, over: 0.1 },
-  sensor: { hit: 0.8, falseAlarm: 0.1 },
+  motion: { under: 0.05, exact: 0.9, over: 0.05 },
+  sensor: { hit: 0.9, falseAlarm: 0.05 },
   ends: 'loop',
 };
 
@@ -64,6 +66,9 @@ export interface CorrectRec {
   kind: 'correct';
   before: number[];
   lik: number[];
+  /** P(z | door) and P(z | wall) as used in this step (the sliders may change later). */
+  likDoor: number;
+  likWall: number;
   product: number[];
   evidence: number;
   after: number[];
@@ -119,7 +124,18 @@ export function doCorrect(s: Snap, doors: readonly boolean[], z: DoorReading, p:
     robot: s.robot,
     // A new look at the same cell gives a fresh, independent reading.
     reading: sampleReading(rand(), doors[s.robot], p.sensor),
-    step: { kind: 'correct', before: s.bel, lik: t.likelihood, product: t.product, evidence: t.evidence, after, z, fromRobot: z === s.reading },
+    step: {
+      kind: 'correct',
+      before: s.bel,
+      lik: t.likelihood,
+      likDoor: z === 'door' ? p.sensor.hit : 1 - p.sensor.hit,
+      likWall: z === 'door' ? p.sensor.falseAlarm : 1 - p.sensor.falseAlarm,
+      product: t.product,
+      evidence: t.evidence,
+      after,
+      z,
+      fromRobot: z === s.reading,
+    },
     t: s.t + 1,
   };
 }

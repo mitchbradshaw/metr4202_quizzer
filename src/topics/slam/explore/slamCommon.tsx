@@ -1,8 +1,36 @@
 // Small pieces shared by the mapping / SLAM simulations: the reading colours (OCC = --m2, FREE = --m1 across
 // the whole topic), signed number formatting, a reading chip, and a scroll helper that brings the visual
 // back on screen after a prediction's "Show me".
+import { useEffect, useState, type RefObject } from 'react';
 import type { BinaryReading } from '../../../core/slam';
 import '../slam.css';
+
+/** Where the sticky visual column sticks: below the app's sticky top bar and topic tabs. */
+const HEADER = 106;
+
+/**
+ * The visual column (.slam-left) is sticky, so it stays in view while the controls and predictions on the right
+ * scroll. On a short laptop window a column taller than the space below the header would keep its bottom (plot,
+ * toggles) out of reach for most of the scroll, so it then scrolls with the page instead. Returns true when the
+ * column does not fit (add the class `is-unstuck`).
+ */
+export function useStickyFit(ref: RefObject<HTMLElement | null>): boolean {
+  const [unstuck, setUnstuck] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof window === 'undefined') return;
+    const check = () => setUnstuck(el.offsetHeight + HEADER + 8 > window.innerHeight);
+    check();
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(check);
+    ro?.observe(el);
+    window.addEventListener('resize', check);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', check);
+    };
+  }, [ref]);
+  return unstuck;
+}
 
 /** OCC readings, hits and occupied evidence. */
 export const OCC_C = 'var(--m2)';
@@ -43,7 +71,6 @@ export function ZChip({ z, small }: { z: BinaryReading; small?: boolean }) {
  */
 export function revealEl(el: HTMLElement | null, figureSel?: string) {
   if (!el || typeof window === 'undefined') return;
-  const HEADER = 106;
   const col = el.getBoundingClientRect();
   const fig = (figureSel ? el.querySelector(figureSel) ?? el : el).getBoundingClientRect();
   let dy = 0;

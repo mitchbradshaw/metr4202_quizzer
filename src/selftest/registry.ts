@@ -4,6 +4,7 @@ import { coreTests } from './core';
 import { tests as groundTruth } from './groundtruth';
 import { tests as kinCore } from './kincore';
 import { tests as content } from './content';
+import { tests as katexContent } from './katex';
 import { tests as bayes } from '../topics/bayes/selftests';
 import { tests as filters } from '../topics/filters/selftests';
 import { tests as models } from '../topics/models/selftests';
@@ -19,6 +20,7 @@ export const ALL_TESTS: SelfTest[] = [
   ...coreTests,
   ...kinCore,
   ...content,
+  ...katexContent,
   ...bayes,
   ...filters,
   ...models,

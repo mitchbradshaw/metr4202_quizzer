@@ -1,5 +1,6 @@
 // Predict-then-reveal: commit to a prediction, then see it in the simulation.
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { hashString, makeRng } from '../engine/rng';
 import { Rich } from './Rich';
 import { Button, Callout } from './kit';
 import { recordPrediction } from '../app/store';
@@ -15,9 +16,17 @@ export interface PredictRevealProps {
   tryIt?: string;
   /** Applies the change in the simulation ("Show me"). */
   onApply?: () => void;
+  /** Keep the written option order (e.g. options that are ordered numbers). Default: a shuffle seeded by id. */
+  fixedOrder?: boolean;
 }
 
-export function PredictReveal({ id, question, options, answer, explain, tryIt, onApply }: PredictRevealProps) {
+export function PredictReveal({ id, question, options, answer, explain, tryIt, onApply, fixedOrder }: PredictRevealProps) {
+  // Display order is a stable shuffle seeded by the prompt id, so the answer is not always where it was written.
+  const order = useMemo(
+    () => (fixedOrder ? options.map((_, i) => i) : makeRng(hashString(id)).shuffle(options.map((_, i) => i))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [id, options.length, fixedOrder]
+  );
   const [pick, setPick] = useState<number | null>(null);
   const [locked, setLocked] = useState(false);
   const [revealed, setRevealed] = useState(false);
@@ -31,7 +40,8 @@ export function PredictReveal({ id, question, options, answer, explain, tryIt, o
       <div className="predict-tag">Predict, then check</div>
       <Rich text={question} />
       <div className="predict-options" role="radiogroup" aria-label="Your prediction">
-        {options.map((o, i) => {
+        {order.map((i) => {
+          const o = options[i];
           const state = revealed ? (i === answer ? 'is-right' : i === pick ? 'is-wrong' : '') : i === pick ? 'is-picked' : '';
           return (
             <button

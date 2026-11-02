@@ -139,6 +139,10 @@ export interface ChoicePart {
   options: { text: Rich; correct: boolean; why?: Rich }[];
   /** Several correct options; all must be selected. */
   multi?: boolean;
+  /** Keep the given option order (e.g. "Arm (a)–(d)", True/False); default is a seeded shuffle. */
+  fixedOrder?: boolean;
+  /** Lay short options out in a grid instead of one full-width row each (e.g. "+ŷ_s", "−ẑ_s"). */
+  compact?: boolean;
   marks?: number;
 }
 
@@ -245,6 +249,8 @@ export interface SolveInstance {
   givens?: Given[];
   /** Optional static diagram for this instance. */
   figure?: ComponentType;
+  /** 'side': at laptop widths put the figure in a sticky left column next to the parts (long problems). */
+  layout?: 'stack' | 'side';
   parts: SolvePart[];
   /** Hint ladder: [concept, set-up, substitution, full worked solution]. */
   hints: [Rich, Rich, Rich, Rich];

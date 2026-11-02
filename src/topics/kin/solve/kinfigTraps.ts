@@ -39,6 +39,21 @@ registerTraps([
     detail: '$Z$ in $h\' = fh/Z$ is the component of (object − camera) along $\\hat z_b$. An object off the axis (e.g. standing on the floor below the camera height) is not at depth $\\lVert X - p \\rVert$.',
   },
   {
+    id: 'kin-camera-inverse',
+    title: 'Image size is inversely proportional to depth',
+    detail: '$h\' = fh/Z$: multiply by the focal length and divide by the depth. Moving closer (smaller $Z$) makes the image **bigger**; rearranged, $Z = fh/h\'$ and $f = h\'Z/h$.',
+  },
+  {
+    id: 'kin-camera-rise',
+    title: 'Fully extended arm: the rise is measured from the pivot',
+    detail: 'In 2025 Q30(c) the straight arm $L_2 + L_3 + L_4$ pivots at joint 2, already $L_1$ up, so it rises $H - L_1$; the lateral distance is $\\sqrt{(L_2 + L_3 + L_4)^2 - (H - L_1)^2}$.',
+  },
+  {
+    id: 'kin-poe-axis-origin',
+    title: 'Rotate about the joint’s own axis line, not a parallel line through the origin',
+    detail: 'A revolute joint turns the outboard links about the line through $q_i$ along $\\omega_i$: a point $x$ goes to $q_i + R(\\omega_i, \\theta_i)(x - q_i)$. Dropping $q_i$ (i.e. $v_i$) rotates about the origin instead.',
+  },
+  {
     id: 'kin-camera-offset',
     title: 'Distance from the base = depth + the camera’s offset along the line of sight',
     detail: 'The pinhole gives the depth from the **camera**. The base is $p \\cdot \\hat z_b$ further back (or forward) along the viewing direction.',

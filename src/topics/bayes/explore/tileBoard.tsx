@@ -2,7 +2,7 @@
 // transition-probability stencil beside it (the paper's Figure 2b). Shared by the grid-world simulation and the
 // bayes-grid exam figure. Tile colours are the floor's real colours (black and white in both themes), set as
 // --bayes-black / --bayes-white in bayes.css.
-import type { KeyboardEvent, ReactNode } from 'react';
+import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { cellLabel, type MoveOutcome, type TileMap } from '../../../core/gridloc';
 import { moveName } from '../solve/common';
 import '../bayes.css';
@@ -37,6 +37,15 @@ export function TileBoard({
 }) {
   const W = tbW(map);
   const H = tbH(map);
+  // Roving tab stop: the board is one Tab stop and the arrow keys move between tiles (not 60 Tab presses).
+  const [cur, setCur] = useState({ c: 0, r: 0 });
+  const tileRefs = useRef(new Map<string, SVGGElement | null>());
+  const moveTo = (c: number, r: number) => {
+    const nc = Math.max(0, Math.min(map.cols - 1, c));
+    const nr = Math.max(0, Math.min(map.rows - 1, r));
+    setCur({ c: nc, r: nr });
+    tileRefs.current.get(`${nc},${nr}`)?.focus();
+  };
   const tiles: ReactNode[] = [];
   for (let r = 0; r < map.rows; r++)
     for (let c = 0; c < map.cols; c++) {
@@ -50,15 +59,25 @@ export function TileBoard({
       tiles.push(
         <g
           key={`${c},${r}`}
+          ref={(el) => {
+            tileRefs.current.set(`${c},${r}`, el);
+          }}
           className="bayes-tile-btn"
           role="button"
-          tabIndex={0}
+          tabIndex={c === Math.min(cur.c, map.cols - 1) && r === Math.min(cur.r, map.rows - 1) ? 0 : -1}
           aria-label={name}
-          onClick={() => onCell(c, r)}
+          onClick={() => {
+            setCur({ c, r });
+            onCell(c, r);
+          }}
           onKeyDown={(e: KeyboardEvent<SVGGElement>) => {
+            const step: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
               onCell(c, r);
+            } else if (step[e.key]) {
+              e.preventDefault();
+              moveTo(c + step[e.key][0], r + step[e.key][1]);
             }
           }}
         >
@@ -68,7 +87,15 @@ export function TileBoard({
       );
     }
   return (
-    <svg className="bayes-board" viewBox={`0 0 ${W} ${H}`} width="100%" style={maxWidth ? { maxWidth } : undefined} role="img" aria-label={ariaLabel}>
+    <svg
+      className="bayes-board"
+      viewBox={`0 0 ${W} ${H}`}
+      width="100%"
+      style={maxWidth ? { maxWidth } : undefined}
+      // With clickable tiles the board is a group of buttons (an "img" would hide them from assistive tech).
+      role={onCell ? 'group' : 'img'}
+      aria-label={onCell ? `${ariaLabel}. Arrow keys move between tiles; Enter or Space clicks one.` : ariaLabel}
+    >
       {Array.from({ length: map.cols }, (_, c) => (
         <text key={`c${c}`} x={tbCx(c)} y={TB.padT - 7} textAnchor="middle" className="bayes-board-axis">
           {String.fromCharCode(65 + c)}

@@ -1,7 +1,7 @@
 // Shared pieces of the bayes simulations: the two-column layout, a short tween driver (per-frame work in refs,
 // one setState at the end), the hand-worked correction table (prior × likelihood = product → posterior) and
 // small formatting helpers. Imports the topic stylesheet.
-import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePrefersReducedMotion } from '../../../anim/hooks';
 import { Rich } from '../../../ui/Rich';
 import '../bayes.css';
@@ -10,6 +10,8 @@ import '../bayes.css';
 export const f4 = (x: number) => (Number.isFinite(x) ? x.toFixed(4) : '—');
 export const f3 = (x: number) => (Number.isFinite(x) ? x.toFixed(3) : '—');
 export const f2 = (x: number) => (Number.isFinite(x) ? x.toFixed(2) : '—');
+/** A table entry: two decimals, or three when the value needs them (0.125 stays 0.125, not 0.13). */
+export const fLik = (x: number) => (!Number.isFinite(x) ? '—' : Math.abs(x * 100 - Math.round(x * 100)) > 1e-6 ? x.toFixed(3) : x.toFixed(2));
 
 export const easeInOut = (p: number) => (p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2);
 
@@ -125,7 +127,7 @@ export function HandTable({ rows, zTex, priorTex = 'P(x)', postTex = 'P(x \\mid 
                 {r.label}
               </td>
               <td>{f4(r.prior)}</td>
-              <td>{f2(r.lik)}</td>
+              <td>{fLik(r.lik)}</td>
               <td>{f4(r.product)}</td>
               <td className="is-post">{f4(r.post)}</td>
             </tr>
@@ -144,6 +146,68 @@ export function HandTable({ rows, zTex, priorTex = 'P(x)', postTex = 'P(x \\mid 
         </tfoot>
       </table>
     </div>
+  );
+}
+
+/**
+ * A probability cell the student can type into. A plain controlled <input type="number"> loses a half-typed
+ * "0." (the browser reports it as empty, React writes the old number back), so this keeps the typed text as a
+ * draft while focused, commits whenever it is a complete number (and on blur / Enter), and steps with ↑ / ↓.
+ */
+export function NumCell({
+  value,
+  onCommit,
+  label,
+  className,
+  min = 0,
+  max = 1,
+  step = 0.01,
+  title,
+}: {
+  value: number;
+  onCommit: (v: number) => void;
+  label: string;
+  className?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  title?: string;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const fmt = (v: number) => String(Number(v.toFixed(3)));
+  const clamp = (v: number) => Math.max(min, Math.min(max, v));
+  const parse = (s: string) => {
+    const t = s.trim().replace(',', '.');
+    return /^\d*\.?\d+$/.test(t) ? Number(t) : NaN;
+  };
+  return (
+    <input
+      className={className}
+      type="text"
+      inputMode="decimal"
+      value={draft ?? fmt(value)}
+      aria-label={label}
+      title={title}
+      onFocus={(e) => {
+        setDraft(fmt(value));
+        e.currentTarget.select();
+      }}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        const v = parse(e.target.value);
+        if (Number.isFinite(v)) onCommit(clamp(v));
+      }}
+      onBlur={() => setDraft(null)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur();
+        else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          const v = clamp(Math.round((value + (e.key === 'ArrowUp' ? step : -step)) * 1000) / 1000);
+          onCommit(v);
+          setDraft(fmt(v));
+        }
+      }}
+    />
   );
 }
 

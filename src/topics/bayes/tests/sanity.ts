@@ -92,6 +92,8 @@ export function instanceProblems(inst: SolveInstance, beliefIds: readonly string
         }
       }
       if (p.rowLabels && p.rowLabels.length !== p.answer.length) bad.push(`${p.id}: ${p.rowLabels.length} row labels for ${p.answer.length} rows`);
+      // Labels are Rich text: a TeX command outside $ … $ would show as raw text (e.g. "\text{C3}").
+      for (const l of [...(p.rowLabels ?? []), ...(p.colLabels ?? [])]) if (/\\[a-zA-Z]/.test(l.replace(/\$[^$]*\$/g, ''))) bad.push(`${p.id}: label "${l}" has TeX outside $ … $`);
       texts.push(...(p.rowLabels ?? []), ...(p.colLabels ?? []));
       for (const t of p.traps ?? []) texts.push(t.message);
     }

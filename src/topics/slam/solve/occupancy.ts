@@ -74,29 +74,36 @@ const SEQS2: BinaryReading[][] = [
 
 // ------------------------------------------------------------------ parts
 
-function priorPart(marks: number): ChoicePart {
+/** (a) The prior and WHY: one option has the right number for the wrong reason, so the reason earns the mark. */
+function priorPart(s: BinarySensor, marks: number): ChoicePart {
+  const pOcc = 0.5 * s.tp + 0.5 * (1 - s.tn);
   return {
     kind: 'choice',
     id: 'prior',
     label: '(a) What is an appropriate prior occupancy probability $p(m)$, and why?',
     options: [
       {
-        text: '0.5: with no information, occupied and free are equally likely, and its log-odds is 0, so it adds no bias',
+        text: '0.5: with no information, occupied and free are equally likely, so its log-odds is 0 and it adds no bias',
         correct: true,
         why: 'The uninformative (maximum-entropy) prior. In log-odds $l_0 = \\ln(0.5/0.5) = 0$, so the map is built from the readings alone (2023 Q31a).',
       },
       {
-        text: '0: assume every cell is free until a reading says otherwise',
+        text: '0.5: before any reading the sensor is equally likely to report OCCUPIED or FREE',
+        correct: false,
+        why: `Right number, wrong reason. The prior is a belief about the **cell**, not about the sensor’s output, and the sensor is not even: $p(z = \\text{occ}) = 0.5 \\times ${f2(s.tp)} + 0.5 \\times ${f2(1 - s.tn)} = ${f3(pOcc)}$. The reason for 0.5 is that, with no information, occupied and free are equally likely.`,
+      },
+      {
+        text: '0: unexplored space should count as free until a reading says otherwise',
         correct: false,
         why: 'A prior of 0 is certainty: $l_0 = -\\infty$ and Bayes’ rule multiplies by $p(m) = 0$, so no reading could ever mark the cell occupied (2025 Q22).',
       },
       {
-        text: '1: assume occupied, to be safe',
+        text: '1: treat every unknown cell as occupied, to be safe',
         correct: false,
         why: 'Also certainty ($l_0 = +\\infty$): the cell could never be cleared, however many FREE readings arrive (2025 Q22).',
       },
       {
-        text: 'The true-positive rate: the chance that the sensor detects an obstacle',
+        text: `${f2(s.tp)}, the true-positive rate: how often the sensor detects an obstacle`,
         correct: false,
         why: 'TP is a property of the sensor, $p(z = \\text{occ} \\mid m)$, not of the cell. The prior describes the cell before any reading.',
       },
@@ -180,7 +187,7 @@ function logOddsPart(id: string, answer: number, step: number | null, prev: numb
     traps: keepTraps(answer, LO.absTol, [
       { value: answer / Math.LN10, message: 'That is $\\log_{10}$. Log-odds use the natural log: $l = \\ln\\frac{p}{1-p}$.', trapId: 'slam-log10' },
       step !== null && prev !== null && Math.abs(prev) > 1e-9
-        ? { value: step, message: `That is only this reading’s step $\\ln\\text{LR}$ = ${sg(step)}. Log-odds accumulate: add it to the previous $l$ = ${sg(prev)}.`, trapId: 'slam-accumulate' }
+        ? { value: step, message: `That is only this reading’s step $\\ln\\text{LR} = ${sg(step)}$. Log-odds accumulate: add it to the previous $l = ${sg(prev)}$.`, trapId: 'slam-accumulate' }
         : null,
       { value: Math.exp(answer), message: 'That is the odds $e^{l} = p/(1-p)$. The log-odds is its natural log.', trapId: 'slam-odds-not-prob' },
     ]),
@@ -188,7 +195,11 @@ function logOddsPart(id: string, answer: number, step: number | null, prev: numb
   };
 }
 
-/** "Why does it end high / low?" built from this instance's likelihood ratios. */
+/**
+ * "Why does it end high / low?" built from this instance's likelihood ratios. Every option quotes this instance's
+ * numbers, so the key cannot be spotted as the only specific one: the distractors are the row-ratio slip (strength
+ * read along the m row), "the first reading sets the answer" and "the filter discounts a contradicting reading".
+ */
 function whyPart(s: BinarySensor, rows: OccRow[], label: string, marks: number): ChoicePart {
   const dO = readingStep('occ', s);
   const dF = readingStep('free', s);
@@ -201,11 +212,12 @@ function whyPart(s: BinarySensor, rows: OccRow[], label: string, marks: number):
   const sum = `${nO > 1 ? `${nO} \\times ` : ''}(${sg(dO, 2)}) ${nF > 1 ? `+ ${nF} \\times ` : '+ '}(${sg(dF, 2)}) = ${sg(last.l, 2)}`;
   const strongOcc = dO > -dF;
   const correct = strongOcc
-    ? `OCC is the stronger evidence: $\\text{LR} = \\text{TP}/(1-\\text{TN})$ ≈ ${lrO.toFixed(1)} against FREE’s $\\text{TN}/(1-\\text{TP})$ ≈ ${lrF.toFixed(1)}, because false positives are rarer than misses; in log-odds $${sum}$`
-    : `FREE is the stronger evidence: $\\text{TN}/(1-\\text{TP})$ ≈ ${lrF.toFixed(1)} against OCC’s $\\text{LR} = \\text{TP}/(1-\\text{TN})$ ≈ ${lrO.toFixed(1)}, because misses are rarer than false positives; in log-odds $${sum}$`;
+    ? `OCC is the stronger evidence: false alarms are rare ($1 - \\text{TN}$ = ${f2(1 - s.tn)}) and misses common ($1 - \\text{TP}$ = ${f2(1 - s.tp)}), so OCC is ${lrO.toFixed(1)}× evidence and FREE only ${lrF.toFixed(1)}×: $${sum}$`
+    : `FREE is the stronger evidence: misses are rare ($1 - \\text{TP}$ = ${f2(1 - s.tp)}) and false alarms common ($1 - \\text{TN}$ = ${f2(1 - s.tn)}), so FREE is ${lrF.toFixed(1)}× evidence and OCC only ${lrO.toFixed(1)}×: $${sum}$`;
   const doubt = high ? 'FREE' : 'OCC';
   const other = high ? 'OCC' : 'FREE';
   const plural = (high ? nF : nO) > 1;
+  const rowStep = Math.log(s.tp / (1 - s.tp));
   return {
     kind: 'choice',
     id: 'why',
@@ -217,21 +229,19 @@ function whyPart(s: BinarySensor, rows: OccRow[], label: string, marks: number):
         why: `Each reading adds its own fixed $\\ln\\text{LR}$ whatever the current belief (${f2(s.tp)}/${f2(1 - s.tn)} for OCC, ${f2(1 - s.tp)}/${f2(s.tn)} for FREE), so the total decides: $${sum}$, $p = ${f4(last.post)}$.`,
       },
       {
-        text: 'The first reading carries the most weight because it sets the prior for every later reading; later readings only fine-tune the estimate',
+        text: `An occupied cell reads OCC much more often than FREE (${f2(s.tp)} against ${f2(1 - s.tp)} in the $m$ row), so each OCC reading outweighs each FREE one by $\\ln(${f2(s.tp)}/${f2(1 - s.tp)}) = ${sg(rowStep, 2)}$`,
         correct: false,
-        why: `Order does not matter: the log-odds just add, so the same readings in any order give ${f4(last.post)}. What matters is each reading’s likelihood ratio.`,
+        why: `That ratio runs along the $m$ row and ignores the free cell. A reading’s strength compares the same reading under both states, down its column: OCC $${f2(s.tp)}/${f2(1 - s.tn)}$, FREE $${f2(1 - s.tp)}/${f2(s.tn)}$. The false-positive rate $1 - \\text{TN}$ is what makes an OCC reading convincing.`,
       },
       {
-        text: plural
-          ? `The ${doubt} readings disagree with the ${other} evidence, so the filter treats them as probable sensor errors and discounts them`
-          : `The ${doubt} reading disagrees with the ${other} evidence, so the filter treats it as a probable sensor error and discounts it`,
+        text: `The first reading set the prior for the rest: once the cell was at ${f4(rows[0].post)}, later readings could only fine-tune it, so the order of the readings decided the result`,
         correct: false,
-        why: `The filter never judges a reading wrong: every ${doubt} reading is weighed by the same likelihood ratio, and each one did move $p$ (${sg(doubt === 'FREE' ? dF : dO, 2)} in log-odds). It simply carries less evidence.`,
+        why: `Order does not matter: the log-odds just add ($${sum}$), so the same readings in any order give ${f4(last.post)}. Each reading moves the log-odds by its own fixed $\\ln\\text{LR}$, whatever the cell already believes.`,
       },
       {
-        text: 'Each Bayes update pulls the estimate part of the way back towards the uninformative prior of 0.5, so no single reading can move it far',
+        text: `The filter treats the ${doubt} reading${plural ? 's' : ''} as ${plural ? 'probable sensor errors' : 'a probable sensor error'}, because ${plural ? 'they contradict' : 'it contradicts'} the ${other} evidence, and gives ${plural ? 'them' : 'it'} less than the usual $${sg(doubt === 'FREE' ? dF : dO, 2)}$ in log-odds`,
         correct: false,
-        why: 'The prior enters once ($l_0 = 0$ adds nothing). After that each posterior is the next prior; nothing pulls the belief back towards 0.5.',
+        why: `The filter never judges a reading wrong: every ${doubt} reading is weighed by the same likelihood ratio and moves the log-odds by the full $${sg(doubt === 'FREE' ? dF : dO, 2)}$. It is simply outweighed by the ${other} evidence: $${sum}$.`,
       },
     ],
     marks,
@@ -290,7 +300,7 @@ function occTier1(rng: Rng) {
       sensorTex(s),
       bayesLine(r),
       `$$l_1 = 0 + \\ln\\frac{${f2(r.pzm)}}{${f2(r.pznm)}} = ${sg(r.l)}, \\qquad 1 - \\frac{1}{1 + e^{${sg(r.l)}}} = ${f4(r.post)}\\ \\checkmark$$`,
-      `**$p(m \\mid z_1)$ = ${f4(r.post)}**, **$l_1$ = ${sg(r.l)}** (dimensionless). ${z === 'occ' ? 'One OCC reading' : 'One FREE reading'} is $\\text{LR} = ${f2(r.pzm)}/${f2(r.pznm)} = ${(r.pzm / r.pznm).toFixed(r.lr >= 1 ? 1 : 3)}$ times evidence.`,
+      `$\\mathbf{p(m \\mid z_1) = ${f4(r.post)}}$, $\\mathbf{l_1 = ${sg(r.l)}}$ (dimensionless). ${z === 'occ' ? 'One OCC reading' : 'One FREE reading'} is $\\text{LR} = ${f2(r.pzm)}/${f2(r.pznm)} = ${(r.pzm / r.pznm).toFixed(r.lr >= 1 ? 1 : 3)}$ times evidence.`,
     ].join('\n\n'),
   ];
   return { prompt, givens: givensOf(s, [z], 0.5), parts, hints };
@@ -312,7 +322,7 @@ function occTier2(rng: Rng) {
   const n = rows.length;
   const last = rows[n - 1];
   const prompt = `A robot is attempting to determine the occupancy of a grid cell. It is equipped with a sensor with:\n\n- probability of true positive: ${f2(s.tp)}\n- probability of true negative: ${f2(s.tn)}\n\nInitially the robot has no knowledge about the occupancy of the cell. The sensor then returns ${n} readings of the cell: **${seqText(zs)}**. Show the probability and the log-odds after each reading.`;
-  const parts: SolvePart[] = [priorPart(2), tablePart(s, 1, '(b) ')];
+  const parts: SolvePart[] = [priorPart(s, 2), tablePart(s, 1, '(b) ')];
   const pm = n === 2 ? [1.5, 2] : [1, 1, 1];
   const lm = n === 2 ? [0.5, 1] : [0.5, 0.5, 1];
   rows.forEach((r, k) => {
@@ -343,8 +353,8 @@ function occTier2(rng: Rng) {
     [
       stepTable(rows, true),
       ...rows.slice(1).map((r) => `Reading ${r.t}:${bayesLine(r)}`),
-      `(a) **0.5**: no information, so occupied and free are equally likely; $l_0 = 0$ adds no bias, and 0 or 1 could never be updated. ${rows.map((r) => `$p_${r.t}$ = **${f4(r.post)}**, $l_${r.t}$ = **${sg(r.l)}**`).join('; ')} (probabilities and log-odds are dimensionless). Check: $1 - 1/(1 + e^{${sg(last.l)}}) = ${f4(last.post)}$.`,
-      `Why: OCC is $\\text{LR} = ${f2(s.tp)}/${f2(1 - s.tn)} = ${(s.tp / (1 - s.tn)).toFixed(2)}$ times evidence, FREE is $${f2(s.tn)}/${f2(1 - s.tp)} = ${(s.tn / (1 - s.tp)).toFixed(2)}$ times evidence the other way. In log-odds ${sg(dO, 2)} vs ${sg(dF, 2)}, so ${dO > -dF ? 'one FREE cannot cancel one OCC' : 'one OCC cannot cancel one FREE'}: $l_${n}$ = ${sg(last.l, 2)}.${note}`,
+      `(a) **0.5**: no information, so occupied and free are equally likely; $l_0 = 0$ adds no bias, and 0 or 1 could never be updated. ${rows.map((r) => `$p_${r.t} =$ **${f4(r.post)}**, $l_${r.t} =$ $\\mathbf{${sg(r.l)}}$`).join('; ')} (probabilities and log-odds are dimensionless). Check: $1 - 1/(1 + e^{${sg(last.l)}}) = ${f4(last.post)}$.`,
+      `Why: OCC is $\\text{LR} = ${f2(s.tp)}/${f2(1 - s.tn)} = ${(s.tp / (1 - s.tn)).toFixed(2)}$ times evidence, FREE is $${f2(s.tn)}/${f2(1 - s.tp)} = ${(s.tn / (1 - s.tp)).toFixed(2)}$ times evidence the other way. In log-odds $${sg(dO, 2)}$ against $${sg(dF, 2)}$, so ${dO > -dF ? 'one FREE cannot cancel one OCC' : 'one OCC cannot cancel one FREE'}: $l_${n} = ${sg(last.l, 2)}$.${note}`,
     ].join('\n\n'),
   ];
   return { prompt, givens: givensOf(s, zs, 0.5), parts, hints };
@@ -401,7 +411,7 @@ function occTier3Prior(rng: Rng) {
     `$$l_0 = \\ln\\frac{${p0}}{${f2(1 - p0)}} = ${sg(l0)}$$${sensorTex(s)}Reading 1:${bayesLine(rows[0])}Steps: OCC $\\ln\\frac{${f2(s.tp)}}{${f2(1 - s.tn)}} = ${sg(readingStep('occ', s))}$, FREE $\\ln\\frac{${f2(1 - s.tp)}}{${f2(s.tn)}} = ${sg(readingStep('free', s))}$.`,
     [
       stepTable(rows, true),
-      `(a) **$l_0$ = ${sg(l0)}**. ${rows.map((r) => `$p_${r.t}$ = **${f4(r.post)}**, $l_${r.t}$ = **${sg(r.l)}**`).join('; ')}. Check: $1 - 1/(1 + e^{${sg(last.l)}}) = ${f4(last.post)}$. From a 0.5 prior the same readings would give ${f4(base[base.length - 1].post)}: the prior only shifts the start by ${sg(l0)}.`,
+      `(a) $\\mathbf{l_0 = ${sg(l0)}}$. ${rows.map((r) => `$p_${r.t} =$ **${f4(r.post)}**, $l_${r.t} =$ $\\mathbf{${sg(r.l)}}$`).join('; ')}. Check: $1 - 1/(1 + e^{${sg(last.l)}}) = ${f4(last.post)}$. From a 0.5 prior the same readings would give ${f4(base[base.length - 1].post)}: the prior only shifts the start by $${sg(l0)}$.`,
       `(d) **${p0 < 0.5 ? 0 : 1}**: a prior of exactly ${p0 < 0.5 ? 0 : 1} is log-odds ${p0 < 0.5 ? '$-\\infty$' : '$+\\infty$'}, so no reading can ever change the cell (2025 Q22).`,
     ].join('\n\n'),
   ];
@@ -409,12 +419,22 @@ function occTier3Prior(rng: Rng) {
 }
 
 /** Tier 3b: the log-odds form only, from a given inverse sensor model (review deck slides 11-13). */
+/**
+ * True when "how many readings of the other kind bring p(m) back across 0.5?" is on a knife edge: the total is
+ * near 0, or it is (nearly) a whole number of opposing steps, so the cell would land on, or within rounding of,
+ * exactly 0.5. Re-pick the sensor as well as the counts: with a symmetric sensor (or steps in a 2 : 1 ratio) every
+ * count lands on a whole number.
+ */
+function knifeEdge(total: number, lUp: number, lDown: number): boolean {
+  const step = Math.abs(total > 0 ? lDown : lUp);
+  const a = Math.abs(total) / step;
+  const frac = a - Math.floor(a);
+  // One step short must still be clearly on the starting side, and the answer clearly across (in log-odds).
+  const margin = Math.max(0.06, 0.1 * step);
+  return Math.abs(total) < 0.3 || frac * step < margin || (1 - frac) * step < margin;
+}
+
 function occTier3LogOdds(rng: Rng) {
-  const s = randomSensor(rng, { paper: true, flipShare: 0.2 });
-  const ismOcc = Number(occupancyUpdate(0.5, 'occ', s).toFixed(4));
-  const ismFree = Number(occupancyUpdate(0.5, 'free', s).toFixed(4));
-  const lOcc = logOdds(ismOcc);
-  const lFree = logOdds(ismFree);
   const SEQS4: BinaryReading[][] = [
     ['occ', 'occ', 'free', 'free'],
     ['occ', 'free', 'occ', 'free'],
@@ -423,15 +443,26 @@ function occTier3LogOdds(rng: Rng) {
     ['occ', 'occ', 'free', 'occ'],
     ['free', 'free', 'occ', 'free'],
   ];
-  // Pick a sequence whose "how many to cross 0.5" answer is not on a knife edge (rounding could flip it).
-  let zs = rng.pick(SEQS4);
-  const totalOf = (q: BinaryReading[]) => q.reduce((t, z) => t + (z === 'occ' ? lOcc : lFree), 0);
-  const edge = (q: BinaryReading[]) => {
-    const t = totalOf(q);
-    const a = Math.abs(t) / Math.abs(t > 0 ? lFree : lOcc);
-    return Math.abs(t) < 0.3 || Math.abs(a - Math.round(a)) < 0.06;
-  };
-  for (let k = 0; k < 12 && edge(zs); k++) zs = rng.pick(SEQS4);
+  // Pick a sensor and a sequence whose "how many to cross 0.5" answer is not on a knife edge (rounding could flip it).
+  // Fallback: the 2023 Q31 sensor, OCC OCC FREE FREE (l = 2.97, 2.58 FREE steps: clear of the edge).
+  let zs: BinaryReading[] = ['occ', 'occ', 'free', 'free'];
+  let ismOcc = 0.9333;
+  let ismFree = 0.24;
+  for (let k = 0; k < 40; k++) {
+    const s1 = randomSensor(rng, { paper: true, flipShare: 0.2 });
+    const z1 = rng.pick(SEQS4);
+    const io = Number(occupancyUpdate(0.5, 'occ', s1).toFixed(4));
+    const iff = Number(occupancyUpdate(0.5, 'free', s1).toFixed(4));
+    const total = z1.reduce((t, z) => t + (z === 'occ' ? logOdds(io) : logOdds(iff)), 0);
+    if (!knifeEdge(total, logOdds(io), logOdds(iff))) {
+      zs = z1;
+      ismOcc = io;
+      ismFree = iff;
+      break;
+    }
+  }
+  const lOcc = logOdds(ismOcc);
+  const lFree = logOdds(ismFree);
   const ls: number[] = [];
   let l = 0;
   for (const z of zs) {
@@ -470,7 +501,7 @@ function occTier3LogOdds(rng: Rng) {
     unit: 'readings',
     absTol: 0.4,
     traps: keepTraps(need, 0.4, [
-      need > 1 ? { value: need - 1, message: `After ${need - 1} the log-odds is ${sg(l + (need - 1) * stepA, 2)}: still on the ${l > 0 ? 'occupied' : 'free'} side of 0.` } : null,
+      need > 1 ? { value: need - 1, message: `After ${need - 1} the log-odds is $${sg(l + (need - 1) * stepA, 2)}$: still on the ${l > 0 ? 'occupied' : 'free'} side of 0.` } : null,
     ]),
     marks: 2,
   });
@@ -480,8 +511,8 @@ function occTier3LogOdds(rng: Rng) {
     `$$l(\\text{occ}) = \\ln\\frac{${f4(ismOcc)}}{${f4(1 - ismOcc)}} = ${sg(lOcc, 4)}, \\qquad l(\\text{free}) = \\ln\\frac{${f4(ismFree)}}{${f4(1 - ismFree)}} = ${sg(lFree, 4)}$$ Running total from $l_0 = 0$: $0 ${zs.map((z) => (z === 'occ' ? sg(lOcc) : sg(lFree))).join(' ')}$.`,
     [
       `$$\\begin{array}{c|c|c|c} t & z_t & \\text{step} & l_t \\\\ \\hline ${zs.map((z, k) => `${k + 1} & ${ZT[z]} & ${sg(z === 'occ' ? lOcc : lFree)} & \\mathbf{${sg(ls[k])}}`).join(' \\\\ ')} \\end{array}$$`,
-      `(a) **${sg(lOcc, 4)}** and **${sg(lFree, 4)}**. (b) ${ls.map((v, k) => `$l_${k + 1}$ = **${sg(v)}**`).join(', ')}. (c) $p = 1 - 1/(1 + e^{${sg(l)}}) =$ **${f4(pEnd)}**.`,
-      `(d) Each ${ZN[against]} adds ${sg(stepA)}: $${f3(Math.abs(l))} / ${f3(Math.abs(stepA))} = ${(Math.abs(l) / Math.abs(stepA)).toFixed(2)}$, so **${need} readings** (after ${need} the log-odds is ${sg(l + need * stepA, 2)}).`,
+      `(a) $\\mathbf{${sg(lOcc, 4)}}$ and $\\mathbf{${sg(lFree, 4)}}$. (b) ${ls.map((v, k) => `$l_${k + 1} =$ $\\mathbf{${sg(v)}}$`).join(', ')}. (c) $p = 1 - 1/(1 + e^{${sg(l)}}) =$ **${f4(pEnd)}**.`,
+      `(d) Each ${ZN[against]} adds $${sg(stepA)}$: $${f3(Math.abs(l))} / ${f3(Math.abs(stepA))} = ${(Math.abs(l) / Math.abs(stepA)).toFixed(2)}$, so **${need} ${need === 1 ? 'reading' : 'readings'}** (after ${need} the log-odds is $${sg(l + need * stepA, 2)}$${need > 1 ? `; after ${need - 1} it is still $${sg(l + (need - 1) * stepA, 2)}$` : ''}).`,
       'These inverse sensor model values are rounded to 4 d.p. (as on the review slides, where $\\ln(0.9884/0.0116) = 4.4451$ against the exact $\\ln 85 = 4.4427$); answers within the rounding are accepted.',
     ].join('\n\n'),
   ];
@@ -546,40 +577,46 @@ function logTier1(rng: Rng) {
     'Log-odds map $p \\in (0, 1)$ onto the whole real line: 0.5 is 0, “probably occupied” is positive, “probably free” negative, and 0 or 1 are $\\mp\\infty$. A reading multiplies the odds by its likelihood ratio, so it **adds** $\\ln\\text{LR}$ to the log-odds.',
     '$$l = \\ln\\frac{p}{1 - p}, \\qquad p = 1 - \\frac{1}{1 + e^{l}}, \\qquad \\Delta l = \\ln\\frac{p(z \\mid m)}{p(z \\mid \\neg m)}$$ with $p(\\text{occ} \\mid m) = \\text{TP}$, $p(\\text{occ} \\mid \\neg m) = 1 - \\text{TN}$, $p(\\text{free} \\mid m) = 1 - \\text{TP}$, $p(\\text{free} \\mid \\neg m) = \\text{TN}$.',
     `(a) $\\ln\\frac{${p}}{${f2(1 - p)}}$. (b) $1 - \\frac{1}{1 + e^{${lB.toFixed(1)}}}$. (c) $\\ln\\frac{${z === 'occ' ? f2(s.tp) : f2(1 - s.tp)}}{${z === 'occ' ? f2(1 - s.tn) : f2(s.tn)}}$.`,
-    `(a) $\\ln(${p}/${f2(1 - p)}) = \\ln ${(p / (1 - p)).toFixed(4)} =$ **${sg(lA)}**. (b) $e^{${lB.toFixed(1)}} = ${Math.exp(lB).toFixed(4)}$, so $p = 1 - 1/${(1 + Math.exp(lB)).toFixed(4)} =$ **${f4(pB)}**. (c) $\\text{LR} = ${lr.toFixed(4)}$, so one ${ZN[z]} reading adds **${sg(step)}** to the log-odds (dimensionless), whatever the cell’s current belief.`,
+    `(a) $\\ln(${p}/${f2(1 - p)}) = \\ln ${(p / (1 - p)).toFixed(4)} =$ $\\mathbf{${sg(lA)}}$. (b) $e^{${lB.toFixed(1)}} = ${Math.exp(lB).toFixed(4)}$, so $p = 1 - 1/${(1 + Math.exp(lB)).toFixed(4)} =$ **${f4(pB)}**. (c) $\\text{LR} = ${lr.toFixed(4)}$, so one ${ZN[z]} reading adds $\\mathbf{${sg(step)}}$ to the log-odds (dimensionless), whatever the cell’s current belief.`,
   ];
   return { prompt, parts, hints };
 }
 
 function logTier2(rng: Rng) {
-  const pHit = rng.step(0.6, 0.9, 0.05);
-  const pPass = rng.step(0.2, 0.45, 0.05);
+  // An inverse sensor model and hit / pass counts whose answer to (e) is not on a knife edge. The sensor is re-picked
+  // too: with p(m | hit) = 1 − p(m | pass) (0.8 / 0.2) or steps in a 2 : 1 ratio (0.9 / 0.25) every count lands on a
+  // whole number of steps, i.e. exactly back at 0.5.
+  let pHit = 0.7;
+  let pPass = 0.35;
+  let k = 4;
+  let j = 2; // fallback: l = 2.15, 3.47 passes to clear: clear of the edge
+  for (let g = 0; g < 60; g++) {
+    const ph = rng.step(0.6, 0.9, 0.05);
+    const pp = rng.step(0.2, 0.45, 0.05);
+    const a = rng.int(2, 6);
+    const b = rng.int(1, 6);
+    if (!knifeEdge(a * logOdds(ph) + b * logOdds(pp), logOdds(ph), logOdds(pp))) {
+      pHit = ph;
+      pPass = pp;
+      k = a;
+      j = b;
+      break;
+    }
+  }
   const lH = logOdds(pHit);
   const lP = logOdds(pPass);
-  // Hit / pass counts whose answer to (e) is not on a knife edge (rounding could flip it).
-  const edge = (a: number, b: number) => {
-    const t = a * lH + b * lP;
-    const x = Math.abs(t) / Math.abs(t > 0 ? lP : lH);
-    return Math.abs(t) < 0.25 || Math.abs(x - Math.round(x)) < 0.06;
-  };
-  let k = rng.int(2, 6);
-  let j = rng.int(1, 6);
-  for (let g = 0; g < 20 && edge(k, j); g++) {
-    k = rng.int(2, 6);
-    j = rng.int(1, 6);
-  }
   const l = k * lH + j * lP;
   const p = fromLogOdds(l);
   const against = l > 0 ? lP : lH;
   const need = Math.floor(Math.abs(l) / Math.abs(against) + 1e-9) + 1;
-  const prompt = `A lidar mapper updates each cell it observes with an inverse sensor model built from the 0.5 prior: a cell where a beam ends (a **hit**) has $p(m \\mid \\text{hit}) = ${f2(pHit)}$, a cell a beam passes through (a **pass**) has $p(m \\mid \\text{pass}) = ${f2(pPass)}$. Cells beyond the hit are not updated. One cell, starting at $p(m) = 0.5$, has so far been hit ${k} times and passed through ${j} times.`;
+  const prompt = `A lidar mapper updates each cell it observes with an inverse sensor model built from the 0.5 prior: a cell where a beam ends (a **hit**) has $p(m \\mid \\text{hit}) = ${f2(pHit)}$, a cell a beam passes through (a **pass**) has $p(m \\mid \\text{pass}) = ${f2(pPass)}$. Cells beyond the hit are not updated. One cell, starting at $p(m) = 0.5$, has so far been hit ${k} times and passed through ${j} ${j === 1 ? 'time' : 'times'}.`;
   const parts: SolvePart[] = [
     logOddsPart('lh', lH, null, null, '(a) $l_{occ}$: the log-odds added by one hit', 1),
     logOddsPart('lp', lP, null, null, '(b) $l_{free}$: the log-odds added by one pass', 1),
     {
       ...logOddsPart('l', l, null, null, `(c) The cell’s log-odds now (${k} hits, ${j} passes)`, 1),
       traps: keepTraps(l, LO.absTol, [
-        { value: k * lH, message: `That counts only the hits. Add the ${j} passes, each ${sg(lP)}.`, trapId: 'slam-accumulate' },
+        { value: k * lH, message: `That counts only the hits. Add the ${j} passes, each $${sg(lP)}$.`, trapId: 'slam-accumulate' },
         { value: (k * lH + j * lP) / (k + j), message: 'That is the average step. Log-odds add: $k\\,l_{occ} + j\\,l_{free}$.', trapId: 'slam-accumulate' },
         { value: l / Math.LN10, message: 'That is $\\log_{10}$. Use the natural log.', trapId: 'slam-log10' },
       ]),
@@ -604,7 +641,7 @@ function logTier2(rng: Rng) {
       answer: need,
       unit: l > 0 ? 'passes' : 'hits',
       absTol: 0.4,
-      traps: keepTraps(need, 0.4, [need > 1 ? { value: need - 1, message: `After ${need - 1} the log-odds is still ${sg(l + (need - 1) * against, 2)}.` } : null]),
+      traps: keepTraps(need, 0.4, [need > 1 ? { value: need - 1, message: `After ${need - 1} the log-odds is still $${sg(l + (need - 1) * against, 2)}$: not yet across 0.` } : null]),
       marks: 1,
     },
     {
@@ -625,8 +662,8 @@ function logTier2(rng: Rng) {
     '$$l_{occ} = \\ln\\frac{p(m \\mid \\text{hit})}{1 - p(m \\mid \\text{hit})}, \\quad l_{free} = \\ln\\frac{p(m \\mid \\text{pass})}{1 - p(m \\mid \\text{pass})}, \\quad l = l_0 + k\\,l_{occ} + j\\,l_{free}, \\quad p = 1 - \\frac{1}{1 + e^{l}}$$',
     `$$l_{occ} = \\ln\\frac{${f2(pHit)}}{${f2(1 - pHit)}}, \\qquad l_{free} = \\ln\\frac{${f2(pPass)}}{${f2(1 - pPass)}}, \\qquad l = 0 + ${k}\\,l_{occ} + ${j}\\,l_{free}$$`,
     [
-      `(a) **${sg(lH)}**, (b) **${sg(lP)}**. (c) $l = ${k} \\times (${sg(lH)}) + ${j} \\times (${sg(lP)}) =$ **${sg(l)}**. (d) $p = 1 - 1/(1 + e^{${sg(l)}}) =$ **${f4(p)}**.`,
-      `(e) Each ${l > 0 ? 'pass' : 'hit'} adds ${sg(against)}: $${f3(Math.abs(l))} / ${f3(Math.abs(against))} = ${(Math.abs(l) / Math.abs(against)).toFixed(2)}$, so **${need}** more (then $l = ${sg(l + need * against, 2)}$).`,
+      `(a) $\\mathbf{${sg(lH)}}$, (b) $\\mathbf{${sg(lP)}}$. (c) $l = ${k} \\times (${sg(lH)}) + ${j} \\times (${sg(lP)}) =$ $\\mathbf{${sg(l)}}$. (d) $p = 1 - 1/(1 + e^{${sg(l)}}) =$ **${f4(p)}**.`,
+      `(e) Each ${l > 0 ? 'pass' : 'hit'} adds $${sg(against)}$: $${f3(Math.abs(l))} / ${f3(Math.abs(against))} = ${(Math.abs(l) / Math.abs(against)).toFixed(2)}$, so **${need}** more (then $l = ${sg(l + need * against, 2)}$${need > 1 ? `; after ${need - 1}, $l = ${sg(l + (need - 1) * against, 2)}$ is still on the same side` : ''}).`,
       '(f) **So the map can still change**: a clamp bounds how much evidence a cell can bank, so a moved obstacle clears after a few passes instead of hundreds.',
     ].join('\n\n'),
   ];

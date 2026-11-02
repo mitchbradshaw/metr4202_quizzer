@@ -97,25 +97,25 @@ export const mcqs: MCQ[] = [
   {
     id: 'slam-q-solves',
     style: 'most-correct',
-    stem: 'The SLAM problem estimates:',
+    stem: 'What does a SLAM algorithm estimate?',
     options: [
       {
-        text: 'the robot’s pose only',
+        text: 'where the robot is, against a map it is given',
         correct: false,
         why: 'That is localisation, which needs the map to be given.',
       },
       {
-        text: 'the map only',
+        text: 'the map, from poses it is given',
         correct: false,
         why: 'That is mapping, which needs the pose to be given.',
       },
       {
-        text: 'both the pose and the map',
+        text: 'where the robot is and the map, together',
         correct: true,
         why: 'Both are unknown and each depends on the other, so SLAM estimates them together: simultaneous localisation and mapping.',
       },
       {
-        text: 'the likelihood of the sensor model',
+        text: 'how likely each sensor reading is',
         correct: false,
         why: 'The sensor model $p(z \\mid x)$ is an input to every estimator, not the thing SLAM solves for.',
       },
@@ -156,25 +156,25 @@ export const mcqs: MCQ[] = [
   {
     id: 'slam-q-online',
     style: 'most-correct',
-    stem: 'Online SLAM estimates:',
+    stem: 'A robot runs **online** SLAM while it drives. What is it estimating?',
     options: [
       {
-        text: 'only the map',
+        text: 'the map on its own',
         correct: false,
         why: 'That is the mapping problem, with the poses given.',
       },
       {
-        text: 'only the current robot pose',
+        text: 'its latest pose on its own',
         correct: false,
         why: 'That is localisation, which needs a known map.',
       },
       {
-        text: 'the current robot pose and the map',
+        text: 'its latest pose together with the map',
         correct: true,
         why: 'Online SLAM keeps the latest pose and the map, $p(x_t, m \\mid z_{1:t}, u_{1:t})$; past poses are integrated out as it goes.',
       },
       {
-        text: 'the full robot trajectory and the map',
+        text: 'every pose along its path, together with the map',
         correct: false,
         why: 'That is **full** SLAM, $p(x_{1:t}, m \\mid z_{1:t}, u_{1:t})$, the distractor in this question.',
       },
@@ -808,7 +808,7 @@ export const shortAnswers: ShortAnswer[] = [
   },
   {
     id: 'slam-sa-prior',
-    prompt: '**(2 marks)** A robot is about to map a cell it knows nothing about. In no more than 50 words: what is an appropriate prior occupancy probability, and why?',
+    prompt: '**(2 marks)** A robot is about to map a cell it knows nothing about. In no more than 50 words: which prior occupancy probability should it start from, and why?',
     wordLimit: 50,
     model: '$p(m) = 0.5$. With no information, occupied and free are equally likely, so 0.5 is the uninformative (maximum-uncertainty) prior. It is log-odds $l_0 = 0$, so it adds no bias to the updates. A prior of 0 or 1 would be certainty, and the cell could never be updated.',
     keyPoints: [
@@ -822,7 +822,7 @@ export const shortAnswers: ShortAnswer[] = [
   },
   {
     id: 'slam-sa-prior-01',
-    prompt: '**(2 marks)** In occupancy-grid mapping with a binary Bayes filter, explain in no more than 70 words the impact of initialising the cells’ occupancy probabilities to 0 or 1.',
+    prompt: '**(2 marks)** A mapper starts some cells of its occupancy grid at exactly 0 or exactly 1. In no more than 70 words, explain what this does to the binary Bayes filter’s later updates of those cells.',
     wordLimit: 70,
     model: 'A probability of 0 or 1 is absolute certainty: log-odds $-\\infty$ or $+\\infty$. Bayes’ rule multiplies by the prior, so $0 \\times$ anything stays 0, and adding any finite log-odds step to $\\pm\\infty$ leaves it unchanged. The cell can never be updated, however many contradicting readings arrive, so a wrong initial value becomes a permanent map error. Use 0.5 instead.',
     keyPoints: [
@@ -836,7 +836,7 @@ export const shortAnswers: ShortAnswer[] = [
   },
   {
     id: 'slam-sa-occ-free',
-    prompt: '**(2 marks)** A sensor has TP 0.7 and TN 0.95. A cell at 0.5 reads OCCUPIED (→ 0.9333) and then FREE (→ 0.8155). In no more than 70 words: explain why the occupancy probability does not fall much after the FREE reading.',
+    prompt: '**(2 marks)** A sensor has TP 0.7 and TN 0.95. A cell at 0.5 reads OCCUPIED (→ 0.9333) and then FREE (→ 0.8155). In no more than 70 words: explain why the FREE reading lowers the cell’s occupancy so little.',
     wordLimit: 70,
     model: 'The two readings carry very different amounts of evidence. False positives are rare (0.05), so an OCCUPIED reading is strong: likelihood ratio $0.7/0.05 = 14$, log-odds $+2.64$. Misses are common (0.30), so a FREE reading is weak: ratio $0.3/0.95 \\approx 1/3.2$, log-odds $-1.15$. One weak FREE removes less than half of what one strong OCCUPIED added, so the cell stays high (0.82).',
     keyPoints: [
@@ -850,7 +850,7 @@ export const shortAnswers: ShortAnswer[] = [
   },
   {
     id: 'slam-sa-loop',
-    prompt: '**(3 marks)** In no more than 100 words: explain how data association affects the quality of a SLAM map and of the robot’s pose estimate, with particular reference to loop closure.',
+    prompt: '**(3 marks)** In no more than 100 words: how does data association, and loop closure in particular, decide how good a SLAM map and the robot’s pose estimate turn out?',
     wordLimit: 100,
     model: 'Data association decides which landmark or previously mapped place each observation corresponds to, or whether it is new. Loop closure is association with a place visited long ago. A **correct** closure adds a constraint to that old pose, so the accumulated drift is spread back along the trajectory: the pose estimate and the map snap into a consistent shape and uncertainty shrinks. A **missed** closure lets drift keep growing and duplicates places in the map. A **false** association forces two different places together: the map warps and the estimate becomes overconfident and hard to correct, the worst case.',
     keyPoints: [
@@ -864,7 +864,7 @@ export const shortAnswers: ShortAnswer[] = [
   },
   {
     id: 'slam-sa-association',
-    prompt: '**(3 marks)** In no more than 100 words: describe the data-association problem in SLAM and explain what an incorrect association does to the SLAM solution.',
+    prompt: '**(3 marks)** In no more than 100 words: what is data association in SLAM, and what happens to the SLAM estimate when an association is wrong?',
     wordLimit: 100,
     model: 'Data association is deciding which landmark produced each measurement, or whether it is a new one. It is hard because landmarks look alike, measurements are noisy and the pose itself is uncertain. An incorrect association applies a measurement to the wrong landmark, adding a false constraint: the pose is pulled to the wrong place, landmark positions are corrupted or duplicated, and the covariance becomes overconfident. Because SLAM couples pose and landmarks, the error spreads through the map. A wrong loop closure is worst: it can warp the whole map or make the filter diverge, and is hard to undo.',
     keyPoints: [
@@ -879,7 +879,7 @@ export const shortAnswers: ShortAnswer[] = [
   },
   {
     id: 'slam-sa-car',
-    prompt: '**(2 marks)** In no more than 70 words: describe two sources of uncertainty that could affect a self-driving car’s ability to localise itself in a pre-built map of a city.',
+    prompt: '**(2 marks)** A self-driving car localises itself in a city map that was built in advance. In no more than 70 words, describe two sources of uncertainty in its pose estimate.',
     wordLimit: 70,
     model: '(1) **Sensor noise**: GPS suffers multipath between tall buildings, and lidar and cameras degrade in rain or glare, so the measurements used in the correction step are noisy or biased. (2) **Map mismatch**: the map is out of date (roadworks, new buildings, parked cars) and traffic and pedestrians hide landmarks, so observations do not match the map and can pull the pose estimate off. (Also valid: wheel slip, perceptual aliasing.)',
     keyPoints: [

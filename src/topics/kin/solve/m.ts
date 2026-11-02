@@ -9,6 +9,7 @@ import { armM, det3, linScale, linStr, linTeX, type ArmSpec, type LinVec, type M
 import { armFigure } from './kinfigArm';
 import { ARM_PAPER, axisIndex, axisTeX, bmatrix, examArm, linVecTeX3, mTeX, numStr, pathSentence, pickRandomArm, sAxesSentence, screenWord, vecTeX3, type ViewKey } from './kinfigArms';
 import type { Rng } from '../../../engine/rng';
+import { pickPart, type PickPart } from './kinfigPick';
 import './kinfigTraps';
 
 export const M_POOL = ['rprr-2023', 'prr-2024', 'rrrrr-2025', 'review-6dof', 'rrrp-2022'];
@@ -77,24 +78,28 @@ export function mMatrixPart(arm: ArmSpec, o: { labels: boolean; marks: number; i
   };
 }
 
-/** "Which way does x̂_b point?" with a why per direction that uses this figure's screen directions. */
-function axisChoice(arm: ArmSpec, k: number, id: string, label: string, marks: number): ChoicePart {
+/** "Which way does x̂_b point?" as a compact direction grid, with a why per direction in this figure's screen words. */
+function axisChoice(arm: ArmSpec, k: number, id: string, label: string, marks: number): PickPart {
   const truth = col(arm.R, k);
-  return {
-    kind: 'choice',
+  const diagonal = Math.abs(truth[0] * arm.view.out[0] + truth[1] * arm.view.out[1] + truth[2] * arm.view.out[2]) > 0.5;
+  return pickPart({
     id,
     label,
-    options: AXIS_DIRS.map((d) => ({
-      text: `$${axisTeX(d)}$`,
-      correct: sameDir(d, truth),
-      why: sameDir(d, truth)
-        ? `$${bAxis(k)}$ is drawn pointing ${screenWord(truth, arm.view)}, and on this figure that is $${axisTeX(d)}$.`
-        : sameDir(d, truth.map((x) => -x) as Vec3)
-          ? `Opposite sign: $${axisTeX(d)}$ points ${screenWord(d, arm.view)}, but $${bAxis(k)}$ is drawn pointing ${screenWord(truth, arm.view)}.`
-          : `$${axisTeX(d)}$ points ${screenWord(d, arm.view)} on this figure; $${bAxis(k)}$ is drawn pointing ${screenWord(truth, arm.view)}.`,
-    })),
+    options: AXIS_DIRS.map((d) => {
+      const flip = sameDir(d, truth.map((x) => -x) as Vec3);
+      return {
+        text: `$${axisTeX(d)}$`,
+        correct: sameDir(d, truth),
+        why: sameDir(d, truth)
+          ? `$${bAxis(k)}$ is drawn pointing ${screenWord(truth, arm.view)}, and on this figure that is $${axisTeX(d)}$.`
+          : flip
+            ? `Opposite sign: $${axisTeX(d)}$ points ${screenWord(d, arm.view)}, but $${bAxis(k)}$ is drawn pointing ${screenWord(truth, arm.view)}.`
+            : `$${axisTeX(d)}$ points ${screenWord(d, arm.view)} on this figure; $${bAxis(k)}$ is drawn pointing ${screenWord(truth, arm.view)}.`,
+        trapId: flip ? (diagonal ? 'diagonal-axis' : 'sign') : undefined,
+      };
+    }),
     marks,
-  };
+  });
 }
 
 /** A classmate reads the diagonal axis backwards: which column of their R is wrong? */
@@ -226,21 +231,23 @@ export const generators: SolveGenerator[] = [
         const y = col(arm.R, 1);
         const z = col(arm.R, 2);
         const x = col(arm.R, 0);
-        parts.push({
-          kind: 'choice',
-          id: 'yb',
-          label: '(c) Right-hand check: what is $\\hat z_b \\times \\hat x_b$? (It must equal $\\hat y_b$ as drawn.)',
-          options: AXIS_DIRS.map((d) => ({
-            text: `$${axisTeX(d)}$`,
-            correct: sameDir(d, y),
-            why: sameDir(d, y)
-              ? `$${vecTeX3(z)} \\times ${vecTeX3(x)} = ${vecTeX3(y)}$, and $\\hat y_b$ is indeed drawn ${screenWord(y, arm.view)}: the frame is right-handed.`
-              : sameDir(d, y.map((t) => -t) as Vec3)
-                ? `That is $\\hat x_b \\times \\hat z_b$: the order matters, since $a \\times b = -(b \\times a)$. In a right-handed frame $\\hat z \\times \\hat x = \\hat y$.`
-                : `$${axisTeX(d)}$ is parallel to $\\hat x_b$ or $\\hat z_b$, and a cross product is perpendicular to both of its factors.`,
-          })),
-          marks: 1,
-        });
+        parts.push(
+          pickPart({
+            id: 'yb',
+            label: '(c) Right-hand check: what is $\\hat z_b \\times \\hat x_b$? (It must equal $\\hat y_b$ as drawn.)',
+            options: AXIS_DIRS.map((d) => ({
+              text: `$${axisTeX(d)}$`,
+              correct: sameDir(d, y),
+              why: sameDir(d, y)
+                ? `$${vecTeX3(z)} \\times ${vecTeX3(x)} = ${vecTeX3(y)}$, and $\\hat y_b$ is indeed drawn ${screenWord(y, arm.view)}: the frame is right-handed.`
+                : sameDir(d, y.map((t) => -t) as Vec3)
+                  ? `That is $\\hat x_b \\times \\hat z_b$: the order matters, since $a \\times b = -(b \\times a)$. In a right-handed frame $\\hat z \\times \\hat x = \\hat y$.`
+                  : `$${axisTeX(d)}$ is parallel to $\\hat x_b$ or $\\hat z_b$, and a cross product is perpendicular to both of its factors.`,
+              trapId: sameDir(d, y.map((t) => -t) as Vec3) ? 'sign' : undefined,
+            })),
+            marks: 1,
+          })
+        );
         parts.push({
           kind: 'matrix',
           id: 'p',

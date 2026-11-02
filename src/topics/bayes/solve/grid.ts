@@ -290,10 +290,10 @@ export function buildGridInstance(spec: GridSpec, tier: Tier): SolveInstance {
     return {
       kind: 'matrix',
       id,
-      label: `${letter(li++)} Every non-zero probability after the action, $${sub === '1' ? 'P(x_1 \\mid u_1, x_0)' : 'P(x_2 \\mid u_2, z_1, u_1, x_0)'}$, one per tile (the tiles listed are the ones the robot can reach)`,
+      label: `${letter(li++)} Every non-zero probability after the action, the predicted belief $\\overline{bel}(x_${sub})$ (in the paper’s notation $${sub === '1' ? 'P(x_1 \\mid u_1, x_0)' : 'P(x_2 \\mid u_2, z_1, u_1, x_0)'}$), one per tile; the tiles listed are the ones the robot can reach`,
       answer,
-      rowLabels: t.cells.map((c) => tx(c.label)),
-      colLabels: [`$P(x_{${sub}})$`],
+      rowLabels: t.cells.map((c) => c.label),
+      colLabels: [`$\\overline{bel}(x_{${sub}})$`],
       absTol: 0.002,
       traps: matrixTraps(answer, [
         ...extraTraps,
@@ -308,7 +308,10 @@ export function buildGridInstance(spec: GridSpec, tier: Tier): SolveInstance {
   const evidencePart = (t: CorrectTable, z: Tile, sub: string, id: string, traps: { value: number; message: string; trapId?: string }[]): NumericPart => ({
     kind: 'numeric',
     id,
-    label: `${letter(li++)} The total probability of the reading, $P(z_{${sub}} = ${tx(colour(z))})$`,
+    label:
+      sub === '1'
+        ? `${letter(li++)} The total probability of the reading, $P(z_{1} = ${tx(colour(z))})$`
+        : `${letter(li++)} The total probability of the second reading, given everything before it, $P(z_{2} = ${tx(colour(z))} \\mid z_1, \\dots)$`,
     answer: t.evidence,
     unit: '',
     tol: 0.004,
@@ -324,7 +327,7 @@ export function buildGridInstance(spec: GridSpec, tier: Tier): SolveInstance {
       id,
       label: `${letter(li++)} The posterior of each tile after seeing ${colour(z)}, $P(x_{${xSub}} \\mid z_{${zSub}} = ${tx(colour(z))}, \\dots)$`,
       answer,
-      rowLabels: t.rows.map((x) => tx(x.label)),
+      rowLabels: t.rows.map((x) => x.label),
       colLabels: ['posterior'],
       absTol: 0.002,
       traps: matrixTraps(answer, traps),
@@ -408,14 +411,15 @@ export function buildGridInstance(spec: GridSpec, tier: Tier): SolveInstance {
 
   // ---------------------------------------------------------------- hints
   const lik1 = [...new Set(corr1.rows.map((x) => x.tile))].map((t) => likText(z1, t, sensor)).join(',\\qquad ');
+  // One bullet per starting tile, one arrow per outcome (the order the worked solutions use).
   const contribTxt = (t: PredictTable) => {
     const froms = [...new Set(t.contributions.map((k) => k.from))];
     return froms
       .map((f) => {
         const ks = t.contributions.filter((k) => k.from === f);
-        return `from ${f} ($P$ = ${num(ks[0].prior)}): ${ks.map((k) => `${moveName(k.move.dc, k.move.dr)} → ${k.to}, ${num(k.move.p)} × ${num(k.prior)} = ${num(k.mass)}`).join('; ')}`;
+        return `- From ${f} ($P$ = ${num(ks[0].prior)}): ${ks.map((k) => `${moveName(k.move.dc, k.move.dr)} → ${k.to}, ${num(k.move.p)} × ${num(k.prior)} = ${num(k.mass)}`).join('; ')}.`;
       })
-      .join('. ');
+      .join('\n');
   };
   const sumTxt = (t: CorrectTable, z: Tile, sub: string) =>
     `$P(z_{${sub}} = ${tx(colour(z))}) = ${t.rows.map((x) => `${num(x.lik)}(${num(x.prior)})`).join(' + ')} = ${num(t.evidence, 5)}$`;
@@ -435,9 +439,9 @@ export function buildGridInstance(spec: GridSpec, tier: Tier): SolveInstance {
     '$$P(z_1) = \\sum_{x_1} P(z_1 \\mid x_1)\\,\\overline{bel}(x_1), \\qquad bel(x_1) = \\frac{P(z_1 \\mid x_1)\\,\\overline{bel}(x_1)}{P(z_1)} = \\eta\\, P(z_1 \\mid x_1)\\,\\overline{bel}(x_1)$$',
     `Read the likelihoods for the colour that was **seen**: $${lik1}$.`,
   ].join('\n\n');
-  const h3Parts = [`Prediction: ${contribTxt(pred1)}.`, `After the move ${colours1}, so ${sumTxt(corr1, z1, '1')}.`];
+  const h3Parts = ['Prediction, arrow by arrow:', contribTxt(pred1), `After the move ${colours1}, so ${sumTxt(corr1, z1, '1')}.`];
   if (second?.kind === 'image') h3Parts.push(`Second image: the priors are the posteriors from the first image; ${sumTxt(res[2].correct!, second.z2, '2')}.`);
-  if (second?.kind === 'move') h3Parts.push(`Second action, from the posteriors: ${contribTxt(res[2].predict!)}. Then ${sumTxt(res[3].correct!, second.z2, '2')}.`);
+  if (second?.kind === 'move') h3Parts.push('Second action, starting from the posteriors:', contribTxt(res[2].predict!), `Then ${sumTxt(res[3].correct!, second.z2, '2')}.`);
   const h3 = h3Parts.join('\n\n');
 
   const w: string[] = [];

@@ -97,7 +97,8 @@ any other literal star. `\\$` is a literal dollar sign. There are no Markdown ta
 
 - Every simulation has a one-line **`notice`** ("what to notice"), shown above it. Required.
 - Predict-then-reveal where it fits: at least **two** `<PredictReveal>` per simulation, with `onApply` that
-  changes the simulation so the student sees the answer happen.
+  changes the simulation so the student sees the answer happen. Options are shown in a stable shuffled order
+  (seeded by the prompt id), so write them in any order; pass `fixedOrder` only for ordered options (numbers).
 - Explanations say **why**, not just what (every MCQ option has a `why`; every hint uses this instance's numbers).
 - Formulas are KaTeX.
 
@@ -147,7 +148,10 @@ any other literal star. `\\$` is a literal dollar sign. There are no Markdown ta
   Open/Closed table or labelling C-space boxes; call `props.onResult({ correct })` once per check and keep
   typed state in `usePersisted(props.pkey + ':x', …)`).
 - `figure`: a component drawn for this instance (graph, workspace, tree, arm). Draw it from the instance data;
-  never embed scanned figures.
+  never embed scanned figures. For long problems set `layout: 'side'` on the instance: the figure then stays in a
+  sticky column next to the parts.
+- Choice parts: `fixedOrder: true` keeps the written order ("Arm (a)–(d)", True/False); `compact: true` lays short
+  options out in a grid.
 - **Hints are exactly four** and use this instance's numbers: concept → set-up (the formula with symbols) →
   substitution (numbers in) → full worked solution (tables in TeX, **bold final answers with units**).
 - Long multi-part templates: `sprint: false`.
@@ -162,7 +166,8 @@ any other literal star. `\\$` is a literal dollar sign. There are no Markdown ta
 
 `explore/index.ts` lists `{ id, title, summary, notice, component, challenge?, minutes }`.
 
-Building blocks: `src/ui/kit.tsx` (`SimLayout`, `Slider` with `tex` + `tip`, `Segmented`, `Toggle`, `Select`,
+Building blocks: `src/ui/kit.tsx` (`SimLayout`, `Slider` with `tex` + `tip` (and `stacked` for long labels in narrow
+panels), `NumField` (a number box that accepts half-typed decimals like "0."), `Segmented`, `Toggle`, `Select`,
 `Readouts`/`Readout` with units, `Legend`, `Callout`, `More`), `src/ui/stepper.tsx` (`useStepper(n)` +
 `<StepControls st={…}/>` for step/play/back through a precomputed trace), `src/plot/Plot.tsx` (SVG plots:
 `Line`, `Area`, `Bars`, `Dot`, `VLine`, draggable `Handle` with pointer + arrow keys), `src/anim/hooks.ts`
@@ -184,6 +189,9 @@ Requirements:
 - Zero console errors; KaTeX must not render errors (the crawler counts `.katex-error`).
 
 ## Self-tests
+
+`src/selftest/katex.ts` renders every TeX fragment in every topic (static content and generated problems over
+several seeds and tiers) and flags an unmatched dollar sign; keep it passing.
 
 Add `SelfTest`s to `selftests.ts` with reference values and their source (worked solutions, review deck, notes)
 using `near`, `nearAbs`, `isTrue` from `src/selftest/assert.ts`. Include a **generator sanity test**: every

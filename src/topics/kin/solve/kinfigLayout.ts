@@ -11,7 +11,7 @@
 //   - dimension lines for L1, L2, … found from the symbolic geometry (two points one symbol apart along an axis);
 //   - overlays the student can reveal after answering: the q_i vectors and ω_i arrows, p, the line of sight.
 // Lengths are drawn with a floor (no length under 45 % of the longest), since the papers are not to scale either.
-import { add3, cross3, dot3, linVecEval, norm3, scale3, sub3, type ArmSpec, type LinVec, type Vec3 } from '../../../core/kin';
+import { add3, armLinksAt, armM, armScrewsS, cross3, dot3, fkSpace, linVecEval, norm3, scale3, sub3, type ArmSpec, type LinVec, type Vec3 } from '../../../core/kin';
 
 export interface P2 {
   x: number;
@@ -39,21 +39,35 @@ export type FigItem =
   | { k: 'dot'; c: P2; r: number; cls: string }
   | FigText;
 
-/** Reveals: the screw-axis geometry in {s} or {b}, the vector p, the camera's line of sight. */
-export type OverlayId = 'screws-s' | 'screws-b' | 'p' | 'sight';
+export interface ViewBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Reveals: the screw-axis geometry in {s} or {b}, the vector p, the camera's line of sight, the arm at a pose. */
+export type OverlayId = 'screws-s' | 'screws-b' | 'p' | 'sight' | 'pose';
 
 export interface ArmFigureModel {
   W: number;
   H: number;
   items: FigItem[];
   overlays: Partial<Record<OverlayId, FigItem[]>>;
+  /** A larger view box for an overlay that reaches outside the drawing (same scale, so nothing jumps). */
+  views: Partial<Record<OverlayId, ViewBox>>;
   aria: string;
-  /** Diagnostics for the self-tests: which lengths got a dimension line, the tightest label gap (px). */
-  stats: { dims: string[]; minLabelGap: number; joints: number };
+  /**
+   * Diagnostics for the self-tests: which lengths got a dimension line, the tightest label gap (px), and how often a
+   * frame's leader runs along one of its own axis arrows or through its own axis labels (0 when the drawing is clean).
+   */
+  stats: { dims: string[]; minLabelGap: number; joints: number; worst: string; leaderHits: number };
 }
 
 export interface ArmFigureOpts {
   overlays?: OverlayId[];
+  /** Joint values for the 'pose' overlay (the arm drawn dashed at this configuration). */
+  pose?: number[];
   /** Subscripts of the frame axes (default 's' and 'b'). */
   sName?: string;
   bName?: string;
@@ -187,14 +201,36 @@ function pointInPoly(p: P2, poly: P2[]): boolean {
   return inside;
 }
 
-/** Everything placed so far, for clearance tests (px). */
+/** Beyond this distance (px) a clearance is "plenty": every score caps well below it, so far items are culled. */
+const CULL = 30;
+
+interface FieldSeg {
+  a: P2;
+  b: P2;
+  r: number;
+  owner: number;
+  /** Bounding box, for culling. */
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/** A lower bound on the distance between two boxes (0 when they overlap). */
+function boxBoxLB(ax0: number, ay0: number, ax1: number, ay1: number, b: { x0: number; y0: number; x1: number; y1: number }): number {
+  const dx = Math.max(b.x0 - ax1, ax0 - b.x1, 0);
+  const dy = Math.max(b.y0 - ay1, ay0 - b.y1, 0);
+  return Math.hypot(dx, dy);
+}
+
+/** Everything placed so far, for clearance tests (px). Far items are culled by their bounding boxes. */
 class Field {
   /** `owner` tags the segments of joint glyphs (joint index), so a dimension can ignore the glyph it starts in. */
-  segs: { a: P2; b: P2; r: number; owner: number }[] = [];
+  segs: FieldSeg[] = [];
   boxes: Box[] = [];
   polys: P2[][] = [];
   seg(a: P2, b: P2, r = 1, owner = -1) {
-    this.segs.push({ a, b, r, owner });
+    this.segs.push({ a, b, r, owner, x0: Math.min(a.x, b.x), y0: Math.min(a.y, b.y), x1: Math.max(a.x, b.x), y1: Math.max(a.y, b.y) });
   }
   line(pts: P2[], r = 1, closed = false, owner = -1) {
     for (let i = 0; i + 1 < pts.length; i++) this.seg(pts[i], pts[i + 1], r, owner);
@@ -214,19 +250,35 @@ class Field {
     f.polys = this.polys.slice();
     return f;
   }
-  /** Smallest gap (px) between a box and anything placed; negative when they overlap. */
+  /** Smallest gap (px) between a box and anything placed; negative when they overlap (exact below CULL). */
   gapBox(B: Box): number {
     let g = Infinity;
-    for (const s of this.segs) g = Math.min(g, segBoxDist(s.a, s.b, B) - s.r);
+    for (const s of this.segs) {
+      const lb = boxBoxLB(B.x0, B.y0, B.x1, B.y1, s) - s.r;
+      if (lb > CULL) {
+        if (lb < g) g = lb;
+        continue;
+      }
+      g = Math.min(g, segBoxDist(s.a, s.b, B) - s.r);
+    }
     for (const o of this.boxes) g = Math.min(g, boxGap(B, o));
     const c = { x: (B.x0 + B.x1) / 2, y: (B.y0 + B.y1) / 2 };
     for (const p of this.polys) if (pointInPoly(c, p)) g = Math.min(g, -6);
     return g;
   }
-  /** Smallest gap (px) between a segment and anything placed. */
+  /** Smallest gap (px) between a segment and anything placed (exact below CULL). */
   gapSeg(a: P2, b: P2, skipNear?: P2[], skipOwners?: number[]): number {
     let g = Infinity;
+    const x0 = Math.min(a.x, b.x);
+    const y0 = Math.min(a.y, b.y);
+    const x1 = Math.max(a.x, b.x);
+    const y1 = Math.max(a.y, b.y);
     for (const s of this.segs) {
+      const lb = boxBoxLB(x0, y0, x1, y1, s) - s.r;
+      if (lb > CULL) {
+        if (lb < g) g = lb;
+        continue;
+      }
       if (skipNear && skipNear.some((q) => pointSegDist(q, s.a, s.b) < 1.5)) continue;
       if (skipOwners && s.owner >= 0 && skipOwners.includes(s.owner)) continue;
       g = Math.min(g, segSegDist(a, b, s.a, s.b) - s.r);
@@ -234,10 +286,24 @@ class Field {
     for (const o of this.boxes) g = Math.min(g, segBoxDist(a, b, o));
     return g;
   }
+  /** How many segments of a polyline pass within `pad` px of a placed box (a label). */
+  boxHits(pts: P2[], pad = 2): number {
+    let n = 0;
+    for (let i = 0; i + 1 < pts.length; i++) for (const b of this.boxes) if (segBoxDist(pts[i], pts[i + 1], { x0: b.x0 - pad, y0: b.y0 - pad, x1: b.x1 + pad, y1: b.y1 + pad }) <= 0) n++;
+    return n;
+  }
   /** How many placed segments a polyline crosses. */
   crossings(pts: P2[]): number {
     let n = 0;
-    for (let i = 0; i + 1 < pts.length; i++) for (const s of this.segs) if (segsCross(pts[i], pts[i + 1], s.a, s.b)) n++;
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const p = pts[i];
+      const q = pts[i + 1];
+      const x0 = Math.min(p.x, q.x);
+      const y0 = Math.min(p.y, q.y);
+      const x1 = Math.max(p.x, q.x);
+      const y1 = Math.max(p.y, q.y);
+      for (const s of this.segs) if (s.x0 <= x1 && s.x1 >= x0 && s.y0 <= y1 && s.y1 >= y0 && segsCross(p, q, s.a, s.b)) n++;
+    }
     return n;
   }
 }
@@ -452,7 +518,9 @@ export function layoutArmFigure(arm: ArmSpec, opts: ArmFigureOpts = {}): ArmFigu
   const wU = Math.max(1e-6, Math.max(...sk.map((p) => p.x)) - Math.min(...sk.map((p) => p.x)));
   const hU = Math.max(1e-6, Math.max(...sk.map((p) => p.y)) - Math.min(...sk.map((p) => p.y)));
   const shortest = Math.min(...segs.map((g) => len2(P1(sub3(g.b, g.a)))));
-  const s = Math.max(Math.min(460 / wU, 320 / hU, 250), Math.min(58 / Math.max(shortest, 1e-6), 320));
+  // (arms with many joints get a larger canvas, so their glyphs and labels do not crowd)
+  const extra = Math.max(0, arm.joints.length - 4);
+  const s = Math.max(Math.min((460 + 55 * extra) / wU, (320 + 40 * extra) / hU, 250), Math.min(58 / Math.max(shortest, 1e-6), 320));
   const P = projector(view, s);
   /** Screen length (px) of one 3-D unit along a direction. */
   const pxPerUnit = (d: Vec3) => len2(P(d));
@@ -460,6 +528,7 @@ export function layoutArmFigure(arm: ArmSpec, opts: ArmFigureOpts = {}): ArmFigu
   const items: FigItem[] = [];
   const field = new Field();
   const labelGaps: number[] = [];
+  const labelWhat: string[] = [];
 
   // ---- links
   for (const g of segs) {
@@ -592,6 +661,7 @@ export function layoutArmFigure(arm: ArmSpec, opts: ArmFigureOpts = {}): ArmFigu
       items.push(best.t);
       field.box(textBox(best.t));
       labelGaps.push(best.gap);
+      labelWhat.push(`theta${i + 1}`);
     }
   });
 
@@ -599,8 +669,9 @@ export function layoutArmFigure(arm: ArmSpec, opts: ArmFigureOpts = {}): ArmFigu
   const sName = opts.sName ?? 's';
   const bName = opts.bName ?? 'b';
   const Rcols: Vec3[] = [0, 1, 2].map((k) => [arm.R[0][k], arm.R[1][k], arm.R[2][k]] as Vec3);
+  let leaderHits = 0;
   const placeTriad = (o2: P2, axes: Vec3[], name: string) => {
-    let best: { T: P2; score: number; parts: FigItem[]; boxes: Box[]; segs: [P2, P2][]; gap: number; leader: P2[] } | null = null;
+    let best: { T: P2; score: number; parts: FigItem[]; boxes: Box[]; segs: [P2, P2][]; gap: number; leader: P2[]; own: number } | null = null;
     for (const d of [62, 86, 112]) {
       for (let k = 0; k < 16; k++) {
         const ang = (k * Math.PI) / 8;
@@ -636,7 +707,20 @@ export function layoutArmFigure(arm: ArmSpec, opts: ArmFigureOpts = {}): ArmFigu
             y: m1 * m1 * m1 * T.y + 3 * m1 * m1 * t * c1.y + 3 * m1 * t * t * c2.y + t * t * t * o2.y,
           };
         });
-        const crosses = field.crossings(leader.slice(0, 11)) + tsegs.reduce((n, [a, b]) => n + (segsCross(a, b, leader[4], leader[8]) ? 1 : 0), 0);
+        // the leader must not run along one of this triad's own arrows or through its own labels (an axis that
+        // points back at the frame origin would otherwise share its line with the leader and read as one stroke)
+        const Lu = unit2(L);
+        let own = 0;
+        for (const [a, b] of tsegs) if (dot2(unit2(sub2(b, a)), Lu) > 0.75) own++;
+        for (const q of leader.slice(3, 13)) {
+          if (tsegs.some(([a, b]) => pointSegDist(q, a, b) < 7)) own++;
+          if (boxes.some((bx) => q.x > bx.x0 - 3 && q.x < bx.x1 + 3 && q.y > bx.y0 - 3 && q.y < bx.y1 + 3)) own++;
+        }
+        const crosses =
+          field.crossings(leader.slice(0, 11)) +
+          field.boxHits(leader.slice(1, 12)) +
+          tsegs.reduce((n, [a, b]) => n + (segsCross(a, b, leader[4], leader[8]) ? 1 : 0), 0) +
+          own;
         const score = soft(gap, 14) - 0.07 * d - 25 * crosses;
         if (!best || score > best.score)
           best = {
@@ -647,15 +731,18 @@ export function layoutArmFigure(arm: ArmSpec, opts: ArmFigureOpts = {}): ArmFigu
             segs: tsegs,
             gap,
             leader,
+            own,
           };
       }
     }
     if (!best) return;
+    leaderHits += best.own;
     items.push(...best.parts);
     for (const [a, b] of best.segs) field.seg(a, b, 1);
     for (const b of best.boxes) field.box(b);
     field.line(best.leader, 0.5);
     labelGaps.push(best.gap);
+    labelWhat.push(`triad ${name}`);
   };
   placeTriad(oS, UNIT, sName);
   placeTriad(oB, Rcols, bName);
@@ -724,6 +811,7 @@ export function layoutArmFigure(arm: ArmSpec, opts: ArmFigureOpts = {}): ArmFigu
     for (const [p, q] of best.ext) field.seg(p, q, 0.5);
     field.box(best.box);
     labelGaps.push(best.gap);
+    labelWhat.push(`dim ${dpair.sym}`);
     dimsPlaced.push(dpair.sym);
   }
 
@@ -768,6 +856,20 @@ export function layoutArmFigure(arm: ArmSpec, opts: ArmFigureOpts = {}): ArmFigu
     const f = field.clone();
     ov.push(placeOvLabel(f, P(add3(pEnd, scale3(z, 100 / pxPerUnit(z)))), 'z', bName, 'kin-fig-ov-sightlabel', true, 'optical axis '));
     overlays.sight = ov;
+  }
+  if (want.has('pose') && opts.pose) {
+    // the arm at the asked configuration (drawing lengths), dashed, with the moved {b} origin and its ẑ_b
+    const polys = armLinksAt(arm, opts.pose, dv);
+    const ov: FigItem[] = polys.filter((pl) => pl.length > 1).map((pl): FigItem => ({ k: 'path', pts: pl.map(P), closed: false, cls: 'kin-fig-ov-pose' }));
+    const T = fkSpace(armM(arm, dv), armScrewsS(arm, dv), opts.pose);
+    const o3: Vec3 = [T[0][3], T[1][3], T[2][3]];
+    const z3: Vec3 = [T[0][2], T[1][2], T[2][2]];
+    const o2 = P(o3);
+    const zTip = P(add3(o3, scale3(z3, PX.triad / Math.max(pxPerUnit(z3), 1e-6))));
+    ov.push({ k: 'dot', c: o2, r: 3.6, cls: 'kin-fig-ov-posedot' }, ...arrowItems(o2, zTip, 'kin-fig-ov-posez', 'kin-fig-ov-posehead'));
+    const f = field.clone();
+    ov.push(placeOvLabel(f, zTip, 'z', bName, 'kin-fig-ov-poselabel', true));
+    overlays.pose = ov;
   }
   for (const frame of ['s', 'b'] as const) {
     if (!want.has(frame === 's' ? 'screws-s' : 'screws-b')) continue;
@@ -831,10 +933,21 @@ export function layoutArmFigure(arm: ArmSpec, opts: ArmFigureOpts = {}): ArmFigu
     }
   };
   items.forEach(visit);
-  Object.values(overlays).forEach((ov) => ov?.forEach(visit));
+  // (the 'pose' overlay can reach far outside the drawing, so it gets its own, larger view box instead)
+  Object.entries(overlays).forEach(([k, ov]) => k !== 'pose' && ov?.forEach(visit));
   const pad = 8;
   const dx = pad - x0;
   const dy = pad - y0;
+  const W = Math.ceil(x1 - x0 + 2 * pad);
+  const H = Math.ceil(y1 - y0 + 2 * pad);
+  const views: Partial<Record<OverlayId, ViewBox>> = {};
+  if (overlays.pose) {
+    const b0 = { x0, y0, x1, y1 };
+    overlays.pose.forEach(visit);
+    const vx = Math.min(0, x0 - b0.x0);
+    const vy = Math.min(0, y0 - b0.y0);
+    views.pose = { x: Math.floor(vx), y: Math.floor(vy), w: Math.ceil(Math.max(W, x1 - b0.x0 + 2 * pad) - vx), h: Math.ceil(Math.max(H, y1 - b0.y0 + 2 * pad) - vy) };
+  }
   const mv = (p: P2): P2 => ({ x: Math.round((p.x + dx) * 10) / 10, y: Math.round((p.y + dy) * 10) / 10 });
   const shift = (it: FigItem): FigItem => {
     if (it.k === 'line') return { ...it, a: mv(it.a), b: mv(it.b) };
@@ -850,11 +963,12 @@ export function layoutArmFigure(arm: ArmSpec, opts: ArmFigureOpts = {}): ArmFigu
   const types = arm.joints.map((j) => j.type).join('');
   const aria = `Exam-style drawing of a ${types} arm at its zero configuration: ${arm.joints.length} joints labelled θ1 to θ${arm.joints.length} from the base, the static frame {${sName}} at the base and the body frame {${bName}} at the end effector, each drawn as a labelled axis triad joined to its origin by a leader, and dimension lines for ${[...new Set(dimsPlaced)].join(', ')}.`;
   return {
-    W: Math.ceil(x1 - x0 + 2 * pad),
-    H: Math.ceil(y1 - y0 + 2 * pad),
+    W,
+    H,
+    views,
     items: items.map(shift),
     overlays: ovShifted,
     aria,
-    stats: { dims: dimsPlaced, minLabelGap: labelGaps.length ? Math.min(...labelGaps) : Infinity, joints: arm.joints.length },
+    stats: { dims: dimsPlaced, minLabelGap: labelGaps.length ? Math.min(...labelGaps) : Infinity, joints: arm.joints.length, worst: labelWhat[labelGaps.indexOf(Math.min(...labelGaps))] ?? '', leaderHits },
   };
 }

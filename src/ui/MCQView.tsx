@@ -16,7 +16,7 @@ function cleanSource(src: string): string {
 
 export const STYLE_PROMPT: Record<MCQ['style'], string> = {
   correct: 'Which statement is correct?',
-  incorrect: 'Which statement is INCORRECT?',
+  incorrect: 'Which one is FALSE (or does NOT apply)?',
   'most-correct': 'Choose the MOST correct answer.',
   value: 'Choose the correct value.',
   best: 'Choose the best option.',
