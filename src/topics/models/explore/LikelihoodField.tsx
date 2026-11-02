@@ -16,7 +16,7 @@ import { Rich } from '../../../ui/Rich';
 import { svgPoint } from '../../../ui/diagrams';
 import { Line, Plot, VLine } from '../../../plot/Plot';
 import { completeChallenge, useProgress } from '../../../app/store';
-import { RobotGlyph, Key, useStageCanvas, type Frame } from './modelsDraw';
+import { RobotGlyph, Key, useDebounced, useStageCanvas, useThrottled, type Frame } from './modelsDraw';
 import { DEG, fx, g } from './modelsFmt';
 import {
   LANDMARKS,
@@ -125,15 +125,20 @@ export default function LikelihoodField() {
   const lmT = useMemo(() => landmarkLog(truth, zs, identical), [truth, zs, identical]);
   const nRet = scan.ranges.filter((z) => z < Z_MAX - 1e-9).length;
 
-  // Heavy work follows deferred copies, so dragging stays smooth.
-  const dHyp = useDeferredValue(hyp);
+  // Heavy work follows throttled copies, so dragging stays smooth: the slice (81 poses, a ray cast per beam)
+  // refreshes about 10 times a second during a drag; the score-at-every-position map (9600 poses at 0.1 m)
+  // shows a coarse 0.4 m map while the heading turns and the fine one once the heading has rested.
+  const dHyp = useThrottled(hyp, 90);
   const dAxis = useDeferredValue(axis);
   const sl = useMemo(() => (mode === 'scan' ? slice(dHyp, dAxis, scan, sp) : null), [mode, dHyp, dAxis, scan, sp]);
-  const dTheta = useDeferredValue(hyp.theta);
+  const turningTheta = useThrottled(hyp.theta, 150);
+  const restedTheta = useDebounced(hyp.theta, 300);
+  const gridTheta = turningTheta === restedTheta ? restedTheta : turningTheta;
+  const gridStep = turningTheta === restedTheta ? 0.1 : 0.4;
   const poseGrid = useMemo(() => {
     if (heat !== 'pose') return null;
-    return mode === 'scan' ? fieldPoseGrid(dTheta, scan, sp) : landmarkPoseGrid(dTheta, zs, identical);
-  }, [heat, mode, dTheta, scan, sp, zs, identical]);
+    return mode === 'scan' ? fieldPoseGrid(gridTheta, scan, sp, gridStep) : landmarkPoseGrid(gridTheta, zs, identical, gridStep);
+  }, [heat, mode, gridTheta, gridStep, scan, sp, zs, identical]);
 
   // ---------------------------------------------------------------- the heat map (ImageData, drawn scaled)
   const fieldImage = useMemo(() => {
@@ -258,6 +263,7 @@ export default function LikelihoodField() {
 
   // ---------------------------------------------------------------- overlay
   const zStars = sc.beam.zStar;
+  const hypBelow = F.sy(hyp.y) > F.sy(truth.y);
   const overlay: ReactNode[] = [];
   if (mode === 'scan') {
     scan.angles.forEach((a, k) => {
@@ -381,7 +387,11 @@ export default function LikelihoodField() {
           value={heat}
           onChange={setHeat}
           options={[
-            { value: 'field', label: mode === 'scan' ? 'Likelihood field' : 'Map', title: 'z_hit N(d; 0, σ²) + z_rand/z_max at every point: bright = near an obstacle' },
+            {
+              value: 'field',
+              label: mode === 'scan' ? 'Likelihood field' : 'Map',
+              title: mode === 'scan' ? 'z_hit N(d; 0, σ²) + z_rand/z_max at every point: bright = near an obstacle' : 'The map alone: a landmark model never looks at the distance field',
+            },
             { value: 'pose', label: 'Score at every position', title: 'ln q of the whole scan if the robot stood at each position with the current heading' },
           ]}
         />
@@ -396,10 +406,11 @@ export default function LikelihoodField() {
           aria-label={`Map 12 by 8 m. Hypothesis at (${fx(hyp.x, 2)}, ${fx(hyp.y, 2)}) heading ${fx(hyp.theta, 2)} rad. ${mode === 'scan' ? `Likelihood field ln q ${fx(sc.field.logq, 1)}, beam model ln q ${fx(sc.beam.logq, 1)}.` : `Landmark ln q ${fx(lmH.logq, 1)}.`}`}
         >
           {overlay}
-          {!hideTruth && <RobotGlyph pose={truth} f={F} r={0.2} color="var(--text-2)" fill="transparent" dashed label="true pose" labelBelow minPx={10} />}
+          {/* Labels go on the far sides of the two glyphs so they never sit beside the other robot. */}
+          {!hideTruth && <RobotGlyph pose={truth} f={F} r={0.2} color="var(--text-2)" fill="transparent" dashed label="true pose" labelBelow={!hypBelow} minPx={10} />}
           <g className="models-drag" tabIndex={0} role="slider" aria-label={`Hypothesised position (${fx(hyp.x, 2)}, ${fx(hyp.y, 2)}) m. Arrow keys move it.`} aria-valuenow={hyp.x} onPointerDown={onDown('move')} onPointerMove={onMove} onPointerUp={onUp} onKeyDown={onKeyMove}>
             <circle cx={F.sx(hyp.x)} cy={F.sy(hyp.y)} r={20} fill="transparent" className="models-focus-ring" />
-            <RobotGlyph pose={hyp} f={F} r={0.2} color="var(--accent)" fill="var(--accent-soft)" label="hypothesis" minPx={11} />
+            <RobotGlyph pose={hyp} f={F} r={0.2} color="var(--accent)" fill="var(--accent-soft)" label="hypothesis" labelBelow={hypBelow} minPx={11} />
           </g>
           <g className="models-drag" tabIndex={0} role="slider" aria-label={`Hypothesised heading ${fx(hyp.theta, 2)} rad. Arrow keys turn it.`} aria-valuenow={hyp.theta} onPointerDown={onDown('turn')} onPointerMove={onMove} onPointerUp={onUp} onKeyDown={onKeyTurn}>
             {(() => {

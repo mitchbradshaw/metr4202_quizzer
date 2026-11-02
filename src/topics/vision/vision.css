@@ -1,0 +1,651 @@
+/* Perception and vision simulations and exam figures. Prefix: vision-. Colours only through the theme variables. */
+
+.vision-sim {
+  margin: 12px 0;
+}
+.vision-sim > * + * {
+  margin-top: 12px;
+}
+.vision-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  align-items: center;
+}
+.vision-panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.vision-panels-wide {
+  grid-template-columns: minmax(0, 1.75fr) minmax(270px, 1fr);
+}
+.vision-panels-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.vision-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 8px 10px;
+  min-width: 0;
+}
+.vision-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 4px 4px;
+}
+.vision-panel-head h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.vision-hint {
+  font-size: 0.8rem;
+}
+.vision-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.vision-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  min-width: 0;
+}
+.vision-box > * + * {
+  margin-top: 8px;
+}
+.vision-box h4 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+.vision-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.vision-explain {
+  font-size: 0.9rem;
+  color: var(--text-2);
+}
+.vision-predicts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+  gap: 0 14px;
+}
+.vision-predicts .predict {
+  margin: 8px 0;
+}
+
+/* ---------------------------------------------------------------- svg basics */
+.vision-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.vision-svg:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.vision-axis {
+  stroke: var(--text-3);
+  stroke-width: 1.2;
+  fill: none;
+}
+.vision-tick {
+  font: 10.5px var(--font);
+  fill: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.vision-small {
+  font: 11px var(--font);
+  fill: var(--text-3);
+}
+.vision-label {
+  font: 12.5px var(--font);
+  fill: var(--text);
+  font-variant-numeric: tabular-nums;
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.vision-label.is-solved {
+  fill: var(--accent);
+  font-weight: 700;
+}
+.vision-dim {
+  stroke: var(--text-3);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+/* ---------------------------------------------------------------- pinhole */
+.vision-cambody {
+  fill: var(--surface-2);
+  stroke: var(--text-3);
+  stroke-width: 1;
+}
+.vision-camwall {
+  stroke: var(--text-2);
+  stroke-width: 3;
+}
+.vision-sensor {
+  stroke: var(--text);
+  stroke-width: 3;
+}
+.vision-tri {
+  fill: color-mix(in srgb, var(--m1) 14%, transparent);
+  stroke: color-mix(in srgb, var(--m1) 55%, transparent);
+  stroke-width: 1;
+}
+.vision-ray {
+  stroke: var(--m1);
+  stroke-width: 1.8;
+}
+.vision-arc {
+  fill: none;
+  stroke: var(--m1);
+  stroke-width: 1.3;
+}
+.vision-obj {
+  stroke: var(--m2);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+.vision-obj.is-img {
+  stroke-width: 3;
+}
+.vision-obj-head {
+  fill: var(--m2);
+}
+.vision-pinhole {
+  fill: var(--surface);
+  stroke: var(--text);
+  stroke-width: 1.6;
+}
+
+/* ---------------------------------------------------------------- matrices (HTML, cheap to update) */
+.vision-matwrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  vertical-align: middle;
+}
+.vision-matlabel {
+  font-size: 0.9rem;
+}
+.vision-mat {
+  display: inline-grid;
+  gap: 1px 10px;
+  padding: 2px 7px;
+  border-left: 1.5px solid var(--text-2);
+  border-right: 1.5px solid var(--text-2);
+  border-radius: 4px;
+  font: 12.5px var(--mono, ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.vision-mat > span {
+  padding: 0 2px;
+  border-radius: 3px;
+  transition: background-color 0.4s;
+}
+.vision-mat > span.is-hi {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* ---------------------------------------------------------------- camera images (intrinsics, pipeline, servoing) */
+.vision-imgbg {
+  fill: var(--surface);
+}
+.vision-imgframe {
+  fill: none;
+  stroke: var(--text-2);
+  stroke-width: 1.5;
+}
+.vision-outside {
+  fill: color-mix(in srgb, var(--text-3) 16%, var(--surface));
+}
+.vision-small.is-accent {
+  fill: var(--accent);
+}
+.vision-label.is-small {
+  font-size: 11.5px;
+}
+.vision-sq-dark {
+  fill: color-mix(in srgb, var(--text) 62%, var(--surface));
+  stroke: none;
+}
+.vision-sq-light {
+  fill: color-mix(in srgb, var(--text) 8%, var(--surface));
+  stroke: color-mix(in srgb, var(--text) 22%, transparent);
+  stroke-width: 0.6;
+}
+.vision-cubeface {
+  fill: var(--m1);
+  stroke: color-mix(in srgb, var(--m1) 70%, var(--text));
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+.vision-pp {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.vision-mats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+}
+.vision-log {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.vision-chip {
+  font-size: 0.75rem;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.vision-chip.is-intr {
+  color: var(--m1);
+  border-color: color-mix(in srgb, var(--m1) 45%, var(--border));
+}
+.vision-chip.is-extr {
+  color: var(--m2);
+  border-color: color-mix(in srgb, var(--m2) 45%, var(--border));
+}
+.vision-intr-box h4 {
+  color: var(--m1);
+}
+.vision-extr-box h4 {
+  color: var(--m2);
+}
+.vision-topview {
+  max-width: 260px;
+}
+.vision-boardtop {
+  stroke: var(--text-3);
+}
+.vision-fov {
+  fill: color-mix(in srgb, var(--accent) 14%, transparent);
+  stroke: var(--accent);
+  stroke-width: 1;
+}
+.vision-camdot {
+  fill: var(--accent);
+}
+.vision-camtri {
+  fill: var(--accent);
+  opacity: 0.85;
+}
+
+/* ---------------------------------------------------------------- calibration */
+.vision-calib > * + * {
+  margin-top: 10px;
+}
+.vision-calib-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.vision-calib-side > * + * {
+  margin-top: 8px;
+}
+.vision-thumbs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.vision-thumb {
+  border-radius: 4px;
+}
+.vision-calib-board {
+  fill: color-mix(in srgb, var(--text) 6%, transparent);
+  stroke: var(--text-3);
+  stroke-width: 2;
+}
+.vision-calib-err {
+  stroke: var(--bad);
+  stroke-width: 3;
+}
+.vision-calib-det {
+  stroke: var(--text);
+  stroke-width: 2.6;
+  fill: none;
+}
+.vision-calib-proj {
+  fill: none;
+  stroke: var(--m1);
+  stroke-width: 3;
+}
+.vision-thumb-label {
+  font: 700 34px var(--font);
+  fill: var(--text-3);
+}
+
+/* ---------------------------------------------------------------- pipeline (three.js) */
+.vision-3d {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 6px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--text) 3%, var(--surface));
+}
+.vision-gl {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+  touch-action: none;
+}
+.vision-3doverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+.vision-3dlabel {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font: 12px var(--font);
+  color: var(--text);
+  white-space: nowrap;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+.vision-img-grid {
+  stroke: color-mix(in srgb, var(--text-3) 45%, transparent);
+  stroke-width: 1;
+}
+.vision-img-ax {
+  stroke-width: 2.5;
+}
+.vision-img-ax.is-x {
+  stroke: var(--m2);
+}
+.vision-img-ax.is-y {
+  stroke: var(--m3);
+}
+.vision-img-ax.is-z {
+  stroke: var(--m1);
+}
+.vision-img-rail {
+  stroke: var(--m4);
+  stroke-width: 3;
+}
+.vision-img-vpline {
+  stroke: var(--m4);
+  stroke-width: 1.4;
+  stroke-dasharray: 6 5;
+}
+.vision-img-vp {
+  fill: var(--surface);
+  stroke: var(--m4);
+  stroke-width: 2.5;
+}
+.vision-img-square {
+  stroke: var(--m3);
+  stroke-width: 2.5;
+}
+.vision-img-post {
+  stroke: var(--m2);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.vision-img-small {
+  stroke: var(--m1);
+  stroke-width: 3.5;
+}
+.vision-img-big {
+  stroke: var(--m2);
+  stroke-width: 2;
+  stroke-dasharray: 7 5;
+}
+.vision-img-p {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+.vision-stages {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.vision-stage h4 {
+  color: var(--accent);
+}
+.vision-matrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: center;
+  justify-content: center;
+}
+.vision-matwrap.is-result .vision-mat {
+  border-color: var(--accent);
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------- servoing */
+.vision-scrub {
+  width: 200px;
+  accent-color: var(--accent);
+}
+.vision-trail {
+  fill: none;
+  stroke-width: 1.8;
+  opacity: 0.75;
+}
+.vision-desired {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 2;
+}
+.vision-feat {
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+.vision-featquad {
+  fill: none;
+  stroke-width: 1.4;
+  stroke-dasharray: 5 4;
+}
+.vision-orbit {
+  cursor: grab;
+}
+.vision-orbit:active {
+  cursor: grabbing;
+}
+.vision-target {
+  fill: color-mix(in srgb, var(--text) 10%, transparent);
+  stroke: var(--text);
+  stroke-width: 1.5;
+}
+.vision-target-pt {
+  fill: var(--text);
+}
+.vision-axis3 {
+  stroke-width: 2;
+}
+.vision-frustum {
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+.vision-frustum.is-goal {
+  stroke: var(--text-2);
+  stroke-dasharray: 5 4;
+}
+.vision-frustum.is-start {
+  stroke: var(--text-3);
+  stroke-width: 1.2;
+}
+.vision-path {
+  fill: none;
+  stroke-width: 2.4;
+}
+.vision-gridline {
+  stroke: color-mix(in srgb, var(--text-3) 22%, transparent);
+  stroke-width: 1;
+}
+.vision-plotline {
+  fill: none;
+  stroke-width: 2.2;
+}
+.vision-cursor {
+  stroke: var(--text-2);
+  stroke-width: 1.2;
+  stroke-dasharray: 4 3;
+}
+.vision-live {
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+.vision-live-sub {
+  font-size: 0.78rem;
+  color: var(--text-2);
+}
+
+/* ---------------------------------------------------------------- sensors */
+.vision-sensor-groups.is-quad,
+.vision-sensor-groups.is-proprio,
+.vision-sensor-groups.is-active {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.vision-sensor-group {
+  background: color-mix(in srgb, var(--text) 3%, var(--surface));
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  min-width: 0;
+}
+.vision-sensor-group h4 {
+  margin: 0 2px 6px;
+  font-size: 0.85rem;
+}
+.vision-sensor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 8px;
+}
+.vision-sensor {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  font-size: 0.86rem;
+}
+.vision-sensor > * + * {
+  margin-top: 6px;
+}
+.vision-sensor.is-picked {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.vision-sensor-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+.vision-sensor-meas {
+  margin: 0;
+  color: var(--text);
+}
+.vision-pm {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+.vision-pm li {
+  padding-left: 16px;
+  position: relative;
+  color: var(--text-2);
+}
+.vision-pm li.is-plus::before {
+  content: '+';
+  position: absolute;
+  left: 2px;
+  color: var(--ok);
+  font-weight: 700;
+}
+.vision-pm li.is-minus::before {
+  content: '\2212';
+  position: absolute;
+  left: 2px;
+  color: var(--bad);
+  font-weight: 700;
+}
+.vision-sensor-uses {
+  margin: 0;
+  color: var(--text-2);
+}
+.vision-sensor-note {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-3);
+}
+.vision-compare > * + * {
+  margin-top: 8px;
+}
+
+/* ---------------------------------------------------------------- fiducials */
+.vision-fid > * + * {
+  margin-top: 10px;
+}
+.vision-wall {
+  stroke: var(--text-2);
+  stroke-width: 3;
+}
+.vision-marker {
+  stroke: var(--m4);
+  stroke-width: 7;
+}
+.vision-fovline {
+  stroke: var(--accent);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+.vision-est {
+  fill: var(--m1);
+  opacity: 0.65;
+}
+.vision-est-tick {
+  stroke: var(--m1);
+  stroke-width: 1;
+  opacity: 0.35;
+}
+.vision-img-stem {
+  stroke: var(--text-3);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+}
+.vision-stage .vision-mat {
+  font-size: 11.5px;
+  gap: 1px 6px;
+  padding: 2px 5px;
+}
+.vision-fig {
+  max-width: 540px;
+}

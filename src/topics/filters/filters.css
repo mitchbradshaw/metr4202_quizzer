@@ -278,7 +278,7 @@
 }
 .filters-opts {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
   gap: 6px;
   margin: 8px 0 4px;
 }
@@ -339,12 +339,13 @@
 .filters-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.86rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
 }
 .filters-table th,
 .filters-table td {
   border-bottom: 1px solid var(--border);
-  padding: 5px 7px;
+  padding: 4px 6px;
   text-align: left;
   vertical-align: top;
 }

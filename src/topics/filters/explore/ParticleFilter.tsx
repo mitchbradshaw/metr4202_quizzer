@@ -404,7 +404,8 @@ export default function ParticleFilter() {
     <div className="filters-panel filters-stack">
       <div className="filters-phase-btns">
         {(['sample', 'weight', 'resample'] as Phase[]).map((ph) => (
-          <Button key={ph} size="sm" className={sim.next === ph && !playing ? 'is-next' : ''} variant={sim.next === ph ? 'primary' : 'default'} disabled={playing || sim.next !== ph} onClick={() => runPhase(false)}>
+          // While running fast the phase changes many times a second: do not flash the buttons (the chip below says the phase).
+          <Button key={ph} size="sm" className={sim.next === ph && !playing ? 'is-next' : ''} variant={sim.next === ph && (!playing || speed <= 2) ? 'primary' : 'default'} disabled={playing || sim.next !== ph} onClick={() => runPhase(false)}>
             {PHASE_LABEL[ph]}
           </Button>
         ))}

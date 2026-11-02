@@ -270,3 +270,31 @@ export function Key({ items }: { items: { label: ReactNode; color: string; kind?
     </div>
   );
 }
+
+/**
+ * Follows `value` at most once every `ms` milliseconds (the last value always lands). For heavy recomputation
+ * that should keep up with a drag without running on every frame.
+ */
+export function useThrottled<T>(value: T, ms: number): T {
+  const [out, setOut] = useState(() => value);
+  const last = useRef(0);
+  useEffect(() => {
+    const wait = Math.max(0, last.current + ms - performance.now());
+    const t = window.setTimeout(() => {
+      last.current = performance.now();
+      setOut(() => value);
+    }, wait);
+    return () => window.clearTimeout(t);
+  }, [value, ms]);
+  return out;
+}
+
+/** `value` once it has stopped changing for `ms` milliseconds. */
+export function useDebounced<T>(value: T, ms: number): T {
+  const [out, setOut] = useState(() => value);
+  useEffect(() => {
+    const t = window.setTimeout(() => setOut(() => value), ms);
+    return () => window.clearTimeout(t);
+  }, [value, ms]);
+  return out;
+}

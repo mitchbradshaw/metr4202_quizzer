@@ -128,7 +128,7 @@ export const mcqs: MCQ[] = [
     stem: 'A robot is commanded to drive 2 m straight ahead. On a wet floor its wheels turn as far as they would for 2 m, but it only moves 1.2 m. What do the two motion models predict for this step?',
     options: [
       {
-        text: 'Both predict about 2 m; only the sensor model can reveal the error',
+        text: 'Both predict about 2 m; only the sensor model (correction step) can reveal the error',
         correct: true,
         why: 'The velocity model predicts the commanded 2 m, and the encoders counted 2 m of wheel rotation, so odometry also says 2 m. Slip is invisible to both; the correction step has to catch it.',
       },
@@ -306,7 +306,7 @@ export const mcqs: MCQ[] = [
     stem: 'Why does the velocity motion model carry the extra rotation term $\\gamma$ in $\\theta\' = \\theta + \\omega\\Delta t + \\gamma\\Delta t$?',
     options: [
       {
-        text: 'To let the final heading vary independently of the end position',
+        text: 'To let the final heading vary independently of where the robot ends up on its arc',
         correct: true,
         why: 'With noise on $v$ and $\\omega$ only, two random numbers decide three pose values, so the final heading is tied to where the robot ends up. A random final rotation $\\hat\\gamma$ frees it; with perfect actuation $\\gamma = 0$.',
       },
@@ -487,7 +487,7 @@ export const mcqs: MCQ[] = [
     stem: 'Why does the beam model keep a small uniform part $z_{rand}\\, p_{rand}$?',
     options: [
       {
-        text: 'So that an unexplained reading never has zero likelihood',
+        text: 'So that a reading that no other part explains still gets a likelihood above zero',
         correct: true,
         why: 'A stray reading (crosstalk, a reflection) far from $z^*$ would otherwise score about 0, and multiplying it into the scan would give the true pose, and every particle near it, weight 0. The floor keeps the filter robust.',
       },
@@ -545,7 +545,7 @@ export const mcqs: MCQ[] = [
     stem: 'How is the probabilistic beam model of a range sensor characterised in practice?',
     options: [
       {
-        text: 'Fit the parameters by maximum likelihood to many readings at known ranges',
+        text: 'Fit the mixture by maximum likelihood to many readings taken at known true ranges',
         correct: true,
         why: 'Histogram the readings and choose the weights, $\\sigma_{hit}$ and $\\lambda_{short}$ that make the data most probable (in practice by expectation maximisation).',
       },
@@ -700,7 +700,7 @@ export const games: Game[] = [
       {
         id: 'p1',
         left: '$p_{hit}$: a Gaussian round the expected range $z^*$',
-        right: 'Measurement noise: limited resolution, timing jitter, small map errors',
+        right: 'A correct return from the mapped surface, blurred by measurement noise',
         why: 'Correct readings scatter symmetrically round the true range, hence a Gaussian centred on $z^*$.',
       },
       {
@@ -778,7 +778,7 @@ export const shortAnswers: ShortAnswer[] = [
     id: 'models-sa-two-step',
     prompt: '**(6 marks)** A differential-drive robot starts at $(1.1, -2.7)$ m with a heading of 0 rad and executes two steering commands for $\\Delta t = 2$ s each: $(v, \\omega, \\gamma) = (1.2, 0.15, 0)$, then $(0.5, -0.2, 0)$. Show that after 4 s it is at $(4.45, -2.24)$ m with a heading of $-0.1$ rad. Show your working (no more than 150 words and numbers).',
     wordLimit: 150,
-    model: 'Velocity model with $\\gamma = 0$ and $r = v/\\omega$, in radians: $x\' = x - r\\sin\\theta + r\\sin(\\theta + \\omega\\Delta t)$, $y\' = y + r\\cos\\theta - r\\cos(\\theta + \\omega\\Delta t)$, $\\theta\' = \\theta + \\omega\\Delta t$.\n\n**Step 1:** $r = 1.2/0.15 = 8$ m and $\\omega\\Delta t = 0.3$ rad. $x_1 = 1.1 - 8\\sin 0 + 8\\sin 0.3 = 3.4642$ m, $y_1 = -2.7 + 8\\cos 0 - 8\\cos 0.3 = -2.3427$ m, $\\theta_1 = 0.3$ rad.\n\n**Step 2**, starting from step 1’s pose with $\\theta_1 = 0.3$ rad: $r = 0.5/(-0.2) = -2.5$ m and $\\omega\\Delta t = -0.4$ rad, so $\\theta_1 + \\omega\\Delta t = -0.1$ rad. $x_2 = 3.46416 + 2.5\\sin 0.3 - 2.5\\sin(-0.1) = 3.46416 + 0.73880 + 0.24958 = 4.4525$ m; $y_2 = -2.34269 - 2.5\\cos 0.3 + 2.5\\cos(-0.1) = -2.34269 - 2.38834 + 2.48751 = -2.2435$ m; $\\theta_2 = -0.1$ rad.\n\nSo after 4 s the robot is at **(4.45, −2.24) m with a heading of −0.1 rad**, as required.',
+    model: 'Velocity model with $\\gamma = 0$ and $r = v/\\omega$, angles in radians:\n\n$$x\' = x - r\\sin\\theta + r\\sin(\\theta + \\omega\\Delta t), \\qquad y\' = y + r\\cos\\theta - r\\cos(\\theta + \\omega\\Delta t), \\qquad \\theta\' = \\theta + \\omega\\Delta t$$\n\n**Step 1**, from $(1.1, -2.7, 0)$: $r = 1.2/0.15 = 8$ m and $\\omega\\Delta t = 0.3$ rad.\n\n$$\\begin{aligned} x_1 &= 1.1 - 8\\sin 0 + 8\\sin 0.3 = 1.1 + 2.36416 = 3.4642\\ \\text{m} \\\\ y_1 &= -2.7 + 8\\cos 0 - 8\\cos 0.3 = -2.7 + 0.35731 = -2.3427\\ \\text{m} \\\\ \\theta_1 &= 0 + 0.3 = 0.3\\ \\text{rad} \\end{aligned}$$\n\n**Step 2**, from step 1’s pose, carrying $\\theta_1 = 0.3$ rad: $r = 0.5/(-0.2) = -2.5$ m (clockwise) and $\\omega\\Delta t = -0.4$ rad, so $\\theta_1 + \\omega\\Delta t = -0.1$ rad.\n\n$$\\begin{aligned} x_2 &= 3.46416 + 2.5\\sin 0.3 - 2.5\\sin(-0.1) = 3.46416 + 0.73880 + 0.24958 = 4.4525\\ \\text{m} \\\\ y_2 &= -2.34269 - 2.5\\cos 0.3 + 2.5\\cos(-0.1) = -2.34269 - 2.38834 + 2.48751 = -2.2435\\ \\text{m} \\\\ \\theta_2 &= 0.3 - 0.4 = -0.1\\ \\text{rad} \\end{aligned}$$\n\nSo after 4 s the robot is at **(4.45, −2.24) m with a heading of −0.1 rad**, as required.',
     keyPoints: [
       'the velocity-model equations with $r = v/\\omega$, in radians',
       'step 1: $r = 8$ m, $\\omega\\Delta t = 0.3$ rad, giving $(3.4642, -2.3427, 0.3)$',
