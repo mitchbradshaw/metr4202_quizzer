@@ -1,0 +1,350 @@
+/* Motion and sensor models (topic 'models'). Every class is prefixed models-. */
+
+.models-sim {
+  margin: 12px 0;
+}
+.models-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(330px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.models-left {
+  position: sticky;
+  /* Below the app's sticky top bar and the topic tabs, so the picture stays in view while the right column
+     scrolls (e.g. after a prediction's "Show me"). On short screens it scrolls inside itself. */
+  top: 106px;
+  z-index: 2;
+  max-height: calc(100vh - 114px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.models-right {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.models-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  min-width: 0;
+}
+.models-panel > h4 {
+  margin: 0 0 6px;
+}
+.models-panel > * + * {
+  margin-top: 8px;
+}
+.models-panel > h4 + * {
+  margin-top: 0;
+}
+.models-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+}
+.models-label {
+  font-size: 0.78rem;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 650;
+}
+.models-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.models-head .models-hint {
+  font-size: 0.8rem;
+  color: var(--text-3);
+}
+.models-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.models-predicts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+  align-items: start;
+}
+.models-predicts .predict {
+  margin: 8px 0;
+}
+
+/* ---------------------------------------------------------------- the stage: svg with a canvas layer */
+.models-stage {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.models-stage-under {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.models-svg {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.models-svg text {
+  font-family: var(--font);
+}
+.models-gridline {
+  stroke: var(--grid);
+  stroke-width: 1;
+}
+.models-gridline.is-major {
+  stroke: color-mix(in srgb, var(--text-3) 30%, transparent);
+}
+.models-axisline {
+  stroke: color-mix(in srgb, var(--text-3) 70%, transparent);
+  stroke-width: 1.2;
+}
+.models-tick {
+  font-size: 10.5px;
+  fill: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.models-note {
+  font-size: 12px;
+  fill: var(--text-2);
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.models-note.is-strong {
+  font-weight: 700;
+}
+.models-drag {
+  cursor: grab;
+}
+.models-drag:active {
+  cursor: grabbing;
+}
+.models-drag:focus-visible {
+  outline: none;
+}
+.models-drag:focus-visible .models-focus-ring {
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-dasharray: 3 2;
+}
+
+/* ---------------------------------------------------------------- tables */
+.models-table-wrap {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.models-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.models-table th,
+.models-table td {
+  padding: 4px 5px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+.models-table th {
+  color: var(--text-2);
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+.models-table td {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.models-table th:first-child,
+.models-table td:first-child {
+  text-align: left;
+}
+.models-table td.models-txt,
+.models-table th.models-txt {
+  font-family: var(--font);
+  white-space: normal;
+  text-align: left;
+}
+.models-table tr.is-sel td {
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+.models-table tr.is-click {
+  cursor: pointer;
+}
+.models-table tr.is-click:hover td {
+  background: var(--surface-2);
+}
+.models-table .num-field {
+  width: 4.6em;
+  font-size: 0.85rem;
+  padding: 2px 4px;
+}
+
+/* ---------------------------------------------------------------- formula card */
+.models-formula {
+  display: grid;
+  gap: 4px;
+  font-size: 0.95rem;
+  overflow-x: auto;
+}
+.models-formula .katex-display {
+  margin: 2px 0;
+}
+.models-formula-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.models-chip {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 5px;
+  vertical-align: -1px;
+}
+.models-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 0.84rem;
+  color: var(--text-2);
+}
+.models-key > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.models-sw {
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  border-top: 2.5px solid currentColor;
+}
+.models-sw.is-dash {
+  border-top-style: dashed;
+}
+.models-sw.is-dot {
+  width: 8px;
+  height: 8px;
+  border: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+.models-sw.is-box {
+  width: 12px;
+  height: 10px;
+  border: none;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.75;
+}
+
+/* ---------------------------------------------------------------- misc */
+.models-ok {
+  color: var(--ok);
+  font-weight: 650;
+}
+.models-bad {
+  color: var(--bad);
+  font-weight: 650;
+}
+.models-mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.models-sliders {
+  display: grid;
+  gap: 2px;
+}
+.models-sliders .slider {
+  margin: 0;
+}
+.models-sliders-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 14px;
+}
+.models-sd {
+  font-size: 0.8rem;
+  color: var(--text-2);
+}
+.models-sd .katex {
+  font-size: 1em;
+}
+
+/* the fill-in comparison table (velocity vs odometry) */
+.models-compare td .seg {
+  flex-wrap: wrap;
+}
+.models-compare td {
+  vertical-align: top;
+  text-align: left;
+  font-family: var(--font);
+  white-space: normal;
+}
+.models-compare .seg-btn {
+  font-size: 0.8rem;
+  padding: 3px 8px;
+  white-space: normal;
+  text-align: left;
+}
+.models-verdict {
+  font-size: 0.8rem;
+  margin-top: 3px;
+  white-space: normal;
+}
+
+/* the responsibility bar under the beam plot */
+.models-resp {
+  display: flex;
+  height: 16px;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.models-resp > span {
+  display: block;
+  height: 100%;
+}
+.models-scorebar {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.models-scorebar > span {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+}
+.models-phase {
+  display: inline-block;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}

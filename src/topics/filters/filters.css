@@ -1,0 +1,385 @@
+/* Kalman, EKF and particle filters (topic filters). Every class is prefixed filters-. */
+
+/* ---------------------------------------------------------------- simulation layout */
+.filters-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(310px, 1fr);
+  gap: 16px;
+  align-items: start;
+  margin: 12px 0;
+}
+.filters-left {
+  position: sticky;
+  /* below the app's sticky top bar and topic tabs, so the visual stays in view while the right column scrolls;
+     on a short laptop screen the panel scrolls inside itself instead of hiding its bottom edge */
+  top: 106px;
+  z-index: 2;
+  min-width: 0;
+  max-height: calc(100vh - 114px);
+  overflow-y: auto;
+  border-radius: var(--radius);
+}
+.filters-right {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.filters-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  min-width: 0;
+}
+.filters-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 10px;
+  margin: 0 0 8px;
+}
+.filters-panel-head > h4 {
+  margin: 0;
+}
+.filters-stack > * + * {
+  margin-top: 8px;
+}
+.filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+}
+.filters-row.is-between {
+  justify-content: space-between;
+}
+/* No text-transform: these labels hold symbols (σ must not become Σ) and units (m must not become M). */
+.filters-label {
+  font-size: 0.8rem;
+  color: var(--text-2);
+  letter-spacing: 0.01em;
+  font-weight: 650;
+}
+.filters-sim .stepper .btn,
+.filters-row .btn,
+.filters-row .seg-btn {
+  min-height: 36px;
+}
+.filters-sim .stepper .btn {
+  min-width: 38px;
+}
+.filters-note {
+  font-size: 0.86rem;
+  color: var(--text-2);
+}
+.filters-note p {
+  margin: 0;
+}
+.filters-mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.filters-predicts > * + * {
+  margin-top: 10px;
+}
+.filters-sliders {
+  display: grid;
+  gap: 2px;
+}
+.filters-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+.filters-two > * {
+  min-width: 0;
+}
+.filters-caption {
+  font-size: 0.8rem;
+  color: var(--text-3);
+  margin: 2px 0 0;
+}
+.filters-caption strong {
+  color: var(--text-2);
+}
+
+/* small coloured key chips used inside text */
+.filters-key {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 5px;
+  vertical-align: -1px;
+}
+
+/* worked numbers (KaTeX lines) */
+.filters-work {
+  display: grid;
+  gap: 2px;
+  font-size: 0.92rem;
+  overflow-x: auto;
+}
+.filters-work .katex-display {
+  margin: 2px 0;
+}
+
+/* ---------------------------------------------------------------- kf1d: phases, dial, gain bar */
+.filters-phases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.filters-dial-wrap {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+.filters-dial {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.filters-dial-text {
+  font: 600 11px var(--font);
+  fill: var(--text-2);
+}
+.filters-dial-k {
+  font: 700 20px var(--mono);
+  fill: var(--text);
+}
+.filters-gainbar {
+  display: flex;
+  height: 22px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  font: 600 11px var(--mono);
+}
+.filters-gainbar > div {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  color: var(--surface);
+  transition: flex-grow 0.08s linear;
+}
+.filters-rail {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.filters-rail-text {
+  font: 600 10.5px var(--font);
+}
+
+/* ---------------------------------------------------------------- ekf: three-panel transform figure */
+.filters-ekf-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+}
+.filters-ekf-svg .filters-tick {
+  font: 10.5px var(--font);
+  fill: var(--text-3);
+}
+.filters-ekf-svg .filters-axis {
+  font: 600 11px var(--font);
+  fill: var(--text-2);
+}
+.filters-ekf-svg .filters-tag {
+  font: 600 11px var(--font);
+}
+.filters-drag {
+  cursor: ew-resize;
+  outline: none;
+}
+.filters-drag:focus-visible circle.filters-drag-ring {
+  stroke: var(--accent);
+  stroke-width: 3px;
+}
+.filters-geo {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ---------------------------------------------------------------- pf: canvas room */
+.filters-canvas-wrap {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.filters-canvas-wrap canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.filters-phase-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.filters-phase-btns .btn.is-next {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.filters-phase-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--text-2);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.filters-hist {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ---------------------------------------------------------------- which-filter: cards and table */
+.filters-cards {
+  display: grid;
+  gap: 10px;
+}
+.filters-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+.filters-card.is-done {
+  border-color: var(--ok);
+}
+.filters-card.is-miss {
+  border-color: var(--bad);
+}
+.filters-card-head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.filters-card-head h4 {
+  margin: 0;
+}
+.filters-opts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+  margin: 8px 0 4px;
+}
+.filters-opt {
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font: inherit;
+  cursor: pointer;
+  min-height: 38px;
+}
+.filters-opt:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.filters-opt:disabled {
+  cursor: default;
+}
+.filters-opt.is-right {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+}
+.filters-opt.is-right::before {
+  content: '✓ ';
+  color: var(--ok);
+  font-weight: 700;
+}
+.filters-opt.is-wrong {
+  border-color: var(--bad);
+  background: var(--bad-soft);
+}
+.filters-opt.is-wrong::before {
+  content: '✗ ';
+  color: var(--bad);
+  font-weight: 700;
+}
+.filters-whys {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 0.88rem;
+}
+.filters-whys > div {
+  padding: 4px 8px;
+  border-left: 3px solid var(--border);
+}
+.filters-whys > div.is-right {
+  border-left-color: var(--ok);
+}
+.filters-whys > div.is-wrong {
+  border-left-color: var(--bad);
+}
+.filters-table-wrap {
+  overflow-x: auto;
+}
+.filters-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+.filters-table th,
+.filters-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 5px 7px;
+  text-align: left;
+  vertical-align: top;
+}
+.filters-table th {
+  font-size: 0.76rem;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.filters-table td.is-num,
+.filters-table th.is-num {
+  text-align: right;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.filters-table tr.is-hot td {
+  background: var(--accent-soft);
+}
+.filters-table tr.is-hot td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.filters-table tr.is-miss td {
+  background: var(--bad-soft);
+}
+.filters-table tr.is-miss td:first-child {
+  box-shadow: inset 3px 0 0 var(--bad);
+}
+.filters-table td p {
+  margin: 0;
+}
+.filters-glyph {
+  display: block;
+}
+.filters-score {
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  color: var(--text-2);
+}
