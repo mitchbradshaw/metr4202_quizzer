@@ -1,0 +1,435 @@
+/* 3-D kinematics simulations (kin/explore: viewer, build-m, screws, poe). Prefix: kin3d-. */
+
+.kin3d {
+  margin: 12px 0;
+}
+.kin3d-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.kin3d-toolbar .kin3d-grow {
+  flex: 1;
+}
+.kin3d-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(330px, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.kin3d-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  min-width: 0;
+}
+.kin3d-panel + .kin3d-panel {
+  margin-top: 12px;
+}
+.kin3d-panel h4 {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-2);
+}
+.kin3d-col > * + * {
+  margin-top: 12px;
+}
+.kin3d-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.kin3d-row + .kin3d-row {
+  margin-top: 6px;
+}
+.kin3d-explain {
+  font-size: 0.92rem;
+  color: var(--text-2);
+  margin: 6px 0 0;
+}
+.kin3d-explain p {
+  margin: 4px 0;
+}
+.kin3d-sub {
+  font-size: 0.82rem;
+  color: var(--text-3);
+}
+
+/* ---------------------------------------------------------------- the 3-D view */
+.kin3d-view {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--surface) 92%, var(--accent)) 0%, var(--surface) 55%, var(--surface-2) 100%);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.kin3d-host {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+}
+.kin3d-gl {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+}
+.kin3d-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.kin3d-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  will-change: transform;
+  text-shadow:
+    0 0 3px var(--surface),
+    0 0 3px var(--surface),
+    0 0 2px var(--surface);
+}
+.kin3d-label.is-small {
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.kin3d-label.is-dim {
+  opacity: 0.55;
+}
+.kin3d-label.is-tag {
+  font-size: 12.5px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  border: 1px solid currentColor;
+  text-shadow: none;
+}
+.kin3d-label.is-pick {
+  font-size: 12.5px;
+  padding: 0 5px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  text-shadow: none;
+}
+.kin3d-label.is-hot {
+  outline: 2px solid var(--accent);
+  background: var(--accent-soft);
+}
+.kin3d-viewbar {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.kin3d-viewbar .seg {
+  background: var(--surface);
+}
+.kin3d-corner {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.82rem;
+  color: var(--text-2);
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  border-radius: 8px;
+  padding: 2px 8px;
+}
+.kin3d-hint {
+  position: absolute;
+  bottom: 6px;
+  right: 10px;
+  left: 10px;
+  text-align: right;
+  font-size: 0.8rem;
+  color: var(--text-3);
+  pointer-events: none;
+}
+.kin3d-noweb {
+  position: absolute;
+  inset: 40px 16px auto;
+}
+.kin3d-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  font-size: 0.84rem;
+  color: var(--text-2);
+  margin-top: 6px;
+}
+.kin3d-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.kin3d-legend i {
+  display: inline-block;
+  width: 18px;
+  height: 4px;
+  border-radius: 2px;
+}
+.kin3d-legend i.is-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+.kin3d-legend i.is-dash {
+  background: repeating-linear-gradient(90deg, var(--text-2) 0 5px, transparent 5px 8px) !important;
+  height: 2px;
+}
+
+/* ---------------------------------------------------------------- joints, sliders */
+.kin3d-joint {
+  border-radius: 8px;
+  padding: 2px 6px;
+  margin: 0 -6px;
+  border: 1px solid transparent;
+}
+.kin3d-joint.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.kin3d-joint .slider {
+  margin: 2px 0;
+}
+.kin3d-chip {
+  font: inherit;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 2px 10px;
+  cursor: pointer;
+}
+.kin3d-chip.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+.kin3d-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ---------------------------------------------------------------- axis buttons */
+.kin3d-axbtns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+.kin3d-axbtns.is-seven {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.kin3d-axbtn {
+  font: inherit;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--ax, var(--border));
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 7px;
+  padding: 3px 6px;
+  cursor: pointer;
+  min-height: 30px;
+}
+.kin3d-axbtn:hover {
+  background: var(--surface-2);
+}
+.kin3d-axbtn.is-on {
+  background: color-mix(in srgb, var(--ax, var(--accent)) 14%, var(--surface));
+  border-color: var(--ax, var(--accent));
+  font-weight: 600;
+}
+.kin3d-axbtn.is-right {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+}
+.kin3d-axbtn.is-wrong {
+  border-color: var(--bad);
+  background: var(--bad-soft);
+}
+.kin3d-axbtn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.kin3d-axbtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ---------------------------------------------------------------- tables */
+.kin3d-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.kin3d-table th,
+.kin3d-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 4px 6px;
+  text-align: center;
+  vertical-align: middle;
+}
+.kin3d-table th {
+  font-weight: 600;
+  color: var(--text-2);
+  font-size: 0.82rem;
+}
+.kin3d-table tr.is-on td {
+  background: var(--accent-soft);
+}
+.kin3d-table tr.is-click {
+  cursor: pointer;
+}
+.kin3d-table tr.is-click:hover td {
+  background: var(--surface-2);
+}
+.kin3d-table tr.is-click.is-on:hover td {
+  background: var(--accent-soft);
+}
+.kin3d-table td.is-left {
+  text-align: left;
+}
+.kin3d-cells {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+.kin3d-cell {
+  width: 62px;
+  font: 0.86rem var(--mono);
+  padding: 3px 4px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: center;
+}
+.kin3d-cell.is-narrow {
+  width: 38px;
+}
+.kin3d-cell:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
+.kin3d-cell.is-ok {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+}
+.kin3d-cell.is-bad,
+.kin3d-cell.is-neg,
+.kin3d-cell.is-invalid {
+  border-color: var(--bad);
+  background: var(--bad-soft);
+}
+.kin3d-paren {
+  color: var(--text-3);
+  font-size: 1.1rem;
+}
+
+/* ---------------------------------------------------------------- matrices */
+.kin3d-mats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  align-items: center;
+}
+.kin3d-mat {
+  min-width: 0;
+  overflow-x: auto;
+}
+.kin3d-mat .katex {
+  font-size: 1.02em;
+}
+.kin3d-mat-cap {
+  font-size: 0.8rem;
+  color: var(--text-3);
+  margin-bottom: 2px;
+}
+.kin3d-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  border-radius: 7px;
+  padding: 2px 9px;
+  font-size: 0.88rem;
+}
+.kin3d-status.is-ok {
+  color: var(--ok);
+  background: var(--ok-soft);
+}
+.kin3d-status.is-bad {
+  color: var(--bad);
+  background: var(--bad-soft);
+}
+.kin3d-status.is-muted {
+  color: var(--text-2);
+  background: var(--surface-2);
+}
+
+/* ---------------------------------------------------------------- PoE formula */
+.kin3d-formula {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 3px;
+  font-size: 1.05rem;
+  padding: 6px 4px;
+}
+.kin3d-factor {
+  border-radius: 6px;
+  padding: 1px 4px;
+  border: 1.5px solid transparent;
+  color: var(--text-3);
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+.kin3d-factor.is-done {
+  color: var(--text);
+  background: var(--surface-2);
+}
+.kin3d-factor.is-now {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.kin3d-factor.is-m {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- predictions, more */
+.kin3d-predicts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 0 12px;
+  align-items: start;
+}
+.kin3d-predicts .predict {
+  margin: 12px 0 0;
+}
+.kin3d-shortcut td.is-on {
+  background: var(--accent-soft);
+  font-weight: 600;
+}

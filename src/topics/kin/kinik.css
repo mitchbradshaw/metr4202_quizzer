@@ -1,0 +1,337 @@
+/* Inverse kinematics track of kinematics: Newton–Raphson IK (kin/explore/ik), Pieper (kin/explore/pieper) and the
+   kin-pieper exam figures. Prefix: kin-ik-. */
+
+.kin-ik {
+  margin: 12px 0;
+}
+.kin-ik .btn {
+  min-height: 36px;
+}
+.kin-ik-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.kin-ik-toolbar .select {
+  min-height: 36px;
+}
+.kin-ik-stepbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  margin-bottom: 10px;
+}
+.kin-ik-status {
+  font-size: 0.9rem;
+  color: var(--text-2);
+  min-width: 0;
+  flex: 1 1 260px;
+}
+.kin-ik-status.is-ok {
+  color: var(--ok);
+}
+.kin-ik-status.is-bad {
+  color: var(--bad);
+}
+
+/* ---------------------------------------------------------------- the two views */
+.kin-ik-views {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+.kin-ik-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px 10px;
+  min-width: 0;
+}
+.kin-ik-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.kin-ik-panel-head h4 {
+  margin: 0;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.kin-ik-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.kin-ik-svg:focus-visible,
+.kin-ik-handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.kin-ik-cbox {
+  position: relative;
+}
+.kin-ik-cbox canvas {
+  position: absolute;
+  left: 15.2174%;
+  top: 2.9268%;
+  width: 76.087%;
+  height: 85.3659%;
+  pointer-events: none;
+}
+.kin-ik-cbox svg {
+  position: relative;
+}
+.kin-ik-grid {
+  stroke: var(--grid);
+  stroke-width: 1;
+}
+.kin-ik-axis {
+  stroke: var(--text-3);
+  stroke-width: 1;
+}
+.kin-ik-frame {
+  fill: none;
+  stroke: var(--text-2);
+  stroke-width: 1.2;
+}
+.kin-ik-tick {
+  font: 10.5px var(--font);
+  fill: var(--text-3);
+}
+.kin-ik-label {
+  font: italic 12px var(--font);
+  fill: var(--text-2);
+}
+.kin-ik-note {
+  font: 11px var(--font);
+  fill: var(--text-2);
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.kin-ik-reach {
+  fill: none;
+  stroke: var(--text-3);
+  stroke-width: 1.2;
+  stroke-dasharray: 2 4;
+}
+.kin-ik-joint {
+  fill: var(--surface);
+  stroke: var(--text);
+  stroke-width: 2;
+}
+.kin-ik-handle {
+  cursor: grab;
+}
+.kin-ik-handle:active {
+  cursor: grabbing;
+}
+.kin-ik-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 0.8rem;
+  color: var(--text-2);
+  margin-top: 4px;
+}
+.kin-ik-legend i {
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  border-top: 3px solid currentColor;
+  vertical-align: middle;
+  margin-right: 5px;
+}
+.kin-ik-legend i.dash {
+  border-top-style: dashed;
+}
+.kin-ik-legend i.dot {
+  border-top-style: dotted;
+}
+.kin-ik-legend b.sw {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  vertical-align: -2px;
+  margin-right: 5px;
+}
+
+/* ---------------------------------------------------------------- numbers + plot */
+.kin-ik-below {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+.kin-ik-math {
+  overflow-x: auto;
+}
+.kin-ik-math .katex-display {
+  margin: 6px 0;
+}
+.kin-ik-math h4,
+.kin-ik-side h4 {
+  margin: 0 0 4px;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.kin-ik-side > * + * {
+  margin-top: 8px;
+}
+.kin-ik-predicts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 12px;
+}
+.kin-ik-explain {
+  font-size: 0.9rem;
+  color: var(--text-2);
+  margin: 4px 0 0;
+}
+
+/* ---------------------------------------------------------------- Pieper */
+.kin-ik-pieper-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.kin-ik-deck {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.kin-ik-thumb {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 2px;
+  cursor: pointer;
+  color: var(--text);
+  font: inherit;
+  min-width: 0;
+}
+.kin-ik-thumb svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.kin-ik-thumb.is-on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.kin-ik-thumb .kin-ik-thumb-n {
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  font-size: 0.72rem;
+  color: var(--text-3);
+}
+.kin-ik-thumb .kin-ik-thumb-mark {
+  position: absolute;
+  right: 5px;
+  top: 1px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.kin-ik-thumb .is-right {
+  color: var(--ok);
+}
+.kin-ik-thumb .is-wrong {
+  color: var(--bad);
+}
+.kin-ik-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+.kin-ik-triples {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+.kin-ik-triples th,
+.kin-ik-triples td {
+  text-align: left;
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.kin-ik-triples tr.is-hit td {
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+  font-weight: 600;
+}
+.kin-ik-triples tr.is-focus td {
+  background: color-mix(in srgb, var(--bad) 9%, transparent);
+}
+.kin-ik-body {
+  stroke: var(--text);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+.kin-ik-cap {
+  stroke: var(--text);
+  stroke-width: 1.6;
+}
+.kin-ik-link {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.kin-ik-axisline {
+  stroke: var(--text-3);
+  stroke-width: 1.1;
+  stroke-dasharray: 7 3 1.5 3;
+  fill: none;
+}
+.kin-ik-jnum {
+  font: 700 12px var(--font);
+  fill: var(--text-2);
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.kin-ik-figs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px 16px;
+  max-width: 760px;
+}
+.kin-ik-fig {
+  text-align: center;
+}
+.kin-ik-fig svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.kin-ik-fig-cap {
+  font-size: 0.9rem;
+  color: var(--text-2);
+}
+.kin-ik-onefig {
+  max-width: 520px;
+}

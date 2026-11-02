@@ -1,0 +1,154 @@
+/* Exam-style arm figures for the kinematics exam-mode generators (kinfigArm.tsx). Every class is prefixed kin-fig-. */
+
+.kin-fig-wrap {
+  margin: 4px 0 8px;
+}
+.kin-fig {
+  display: block;
+  overflow: visible;
+}
+.kin-fig-cap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+/* ---- the arm */
+.kin-fig-link {
+  stroke: var(--text);
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  fill: none;
+}
+.kin-fig-solid {
+  fill: var(--surface);
+  stroke: var(--text);
+  stroke-width: 1.7;
+  stroke-linejoin: round;
+}
+.kin-fig-shaft {
+  stroke: var(--text);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+.kin-fig-axis {
+  stroke: var(--text-3);
+  stroke-width: 1;
+  stroke-dasharray: 5 3;
+}
+.kin-fig-arc {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.kin-fig-parrow {
+  stroke: var(--text);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+.kin-fig-head {
+  fill: var(--text);
+  stroke: var(--text);
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+}
+.kin-fig-origin {
+  fill: var(--text);
+}
+
+/* ---- frames */
+.kin-fig-triad {
+  stroke: var(--text);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.kin-fig-triadhead {
+  fill: var(--text);
+}
+.kin-fig-leader {
+  fill: none;
+  stroke: var(--text-3);
+  stroke-width: 1.1;
+}
+
+/* ---- dimensions */
+.kin-fig-dim {
+  stroke: var(--text-2);
+  stroke-width: 1;
+}
+.kin-fig-dimhead {
+  fill: var(--text-2);
+}
+.kin-fig-ext {
+  stroke: var(--text-3);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+
+/* ---- text */
+.kin-fig-text {
+  font: 600 14px var(--font);
+  fill: var(--text);
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+.kin-fig-joint {
+  fill: var(--text-2);
+  font-weight: 500;
+}
+.kin-fig-dimlabel {
+  font-weight: 500;
+}
+
+/* ---- reveals (answer geometry) */
+.kin-fig-ov-w {
+  stroke: var(--m1);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+.kin-fig-ov-whead {
+  fill: var(--m1);
+}
+.kin-fig-ov-wlabel {
+  fill: var(--m1);
+}
+.kin-fig-ov-q {
+  stroke: var(--m3);
+  stroke-width: 1.8;
+  stroke-dasharray: 6 3;
+}
+.kin-fig-ov-qhead,
+.kin-fig-ov-qdot {
+  fill: var(--m3);
+}
+.kin-fig-ov-qlabel {
+  fill: var(--m3);
+}
+.kin-fig-ov-p {
+  stroke: var(--m2);
+  stroke-width: 2.2;
+  stroke-dasharray: 7 3;
+}
+.kin-fig-ov-phead {
+  fill: var(--m2);
+}
+.kin-fig-ov-plabel {
+  fill: var(--m2);
+}
+.kin-fig-ov-sight {
+  stroke: var(--m4);
+  stroke-width: 2;
+  stroke-dasharray: 8 4;
+}
+.kin-fig-ov-sighthead {
+  fill: var(--m4);
+}
+.kin-fig-ov-sightlabel {
+  fill: var(--m4);
+  font-weight: 500;
+}

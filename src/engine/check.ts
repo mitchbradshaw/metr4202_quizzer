@@ -112,7 +112,12 @@ function checkSymbolic(part: MatrixPart, raw: string[][]): MatrixVerdict {
   const sets = symbolSets(sym.vars);
   const A = sym.answer;
   const cells = A.map((row) => row.map(() => false));
-  const val = (src: string, k: number) => (src.trim() === '' ? NaN : evaluate(src, sets[k]));
+  // An empty cell counts as 0 when the table shows a '0' placeholder (screw tables are mostly zeros).
+  const blank = part.placeholder === '0' ? '0' : '';
+  const val = (src: string, k: number) => {
+    const s = src.trim() === '' ? blank : src;
+    return s === '' ? NaN : evaluate(s, sets[k]);
+  };
   if (raw.some((row) => row.some((c) => !Number.isFinite(val(c, 0))))) {
     const eg = sym.vars.length > 1 ? ` (e.g. \`-${sym.vars[0]}\` or \`${sym.vars[0]}+${sym.vars[1]}\`)` : '';
     return { correct: false, invalid: true, cells, message: `Fill every cell with a number or an expression in ${sym.vars.join(', ')}${eg}. Write 0 for zero.` };

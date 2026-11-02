@@ -36,6 +36,21 @@ export const tests: SelfTest[] = [
     },
   },
   {
+    id: 'gt-logodds-any-prior',
+    topic: 'core',
+    title: 'Log-odds form equals the Bayes form for a prior other than 0.5',
+    source: 'Summary notes §4 (log-odds update); review deck slide 12',
+    run: () => {
+      const s = { tp: 0.8, tn: 0.9 };
+      const p0 = 0.3;
+      const l0 = Math.log(p0 / (1 - p0));
+      const bayes = occupancySequence(p0, ['occ', 'free', 'occ'], s);
+      let l = l0;
+      for (const z of ['occ', 'free', 'occ'] as const) l = logOddsUpdate(l, z, s, l0);
+      return [nearAbs('prior 0.3, OCC FREE OCC: log-odds form = Bayes form', fromLogOdds(l), bayes[3], 1e-12)];
+    },
+  },
+  {
     id: 'gt-occupancy-2023',
     topic: 'core',
     title: '2023 Q31, TP 0.70, TN 0.95: 0.9333, then 0.8155',

@@ -1,0 +1,501 @@
+/* Mapping and SLAM simulations (topic slam, owner: slam-sims). Every class is prefixed slam-.
+   Colours: OCC readings / hits = --m2, FREE readings / passes = --m1, belief = --m3 (see explore/slamCommon.tsx). */
+
+/* ------------------------------------------------------------------ shared layout */
+.slam-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr);
+  gap: 16px;
+  align-items: start;
+  margin: 12px 0;
+}
+.slam-left {
+  position: sticky;
+  /* below the app's sticky top bar and topic tabs */
+  top: 106px;
+  z-index: 2;
+  min-width: 0;
+}
+.slam-right {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.slam-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  min-width: 0;
+}
+.slam-panel > h4 {
+  margin: 0 0 6px;
+}
+.slam-left.slam-panel > * + * {
+  margin-top: 8px;
+}
+.slam-right .slider {
+  margin-top: 4px;
+}
+.slam-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: center;
+}
+.slam-label {
+  font-size: 0.78rem;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 650;
+}
+.slam-svg {
+  display: block;
+  max-width: 100%;
+  user-select: none;
+}
+.slam-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  color: var(--text-2);
+  align-items: center;
+}
+.slam-sw {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  vertical-align: -1px;
+  margin-right: 4px;
+}
+.slam-sw.is-line {
+  height: 3px;
+  vertical-align: 3px;
+  border-radius: 2px;
+}
+.slam-sw.is-dash {
+  height: 0;
+  border-top: 2px dashed currentColor;
+  vertical-align: 3px;
+  border-radius: 0;
+}
+.slam-predicts .predict + .predict {
+  margin-top: 10px;
+}
+
+/* reading chips */
+.slam-zchip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  color: var(--surface);
+  line-height: 1.5;
+}
+.slam-zchip.is-occ {
+  background: var(--m2);
+}
+.slam-zchip.is-free {
+  background: var(--m1);
+}
+.slam-zchip.is-small {
+  font-size: 0.66rem;
+  padding: 0 5px;
+}
+
+/* tables */
+.slam-table-wrap {
+  overflow-x: auto;
+  margin: 6px 0;
+}
+.slam-table {
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  width: 100%;
+}
+.slam-table th,
+.slam-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+.slam-table td {
+  font-family: var(--mono);
+}
+.slam-table thead th {
+  font-weight: 650;
+  color: var(--text-2);
+  font-size: 0.76rem;
+}
+.slam-table tbody th {
+  text-align: left;
+  font-weight: 600;
+}
+.slam-table .is-key {
+  font-weight: 700;
+}
+.slam-table tr.is-last td {
+  background: var(--accent-soft);
+}
+.slam-tag {
+  font-family: var(--font);
+  font-size: 0.66rem;
+  color: var(--text-3);
+  margin-left: 2px;
+}
+
+/* ------------------------------------------------------------------ occupancy cell */
+.slam-occ-add {
+  font-weight: 700;
+  min-height: 40px;
+  border-width: 2px;
+}
+.slam-occ-add.is-occ {
+  border-color: var(--m2);
+  color: var(--m2);
+}
+.slam-occ-add.is-free {
+  border-color: var(--m1);
+  color: var(--m1);
+}
+.slam-occ-seq {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-items: center;
+  min-height: 22px;
+}
+.slam-occ-wf {
+  min-width: 0;
+}
+.slam-wf-half.is-free {
+  fill: var(--m1);
+  opacity: 0.05;
+}
+.slam-wf-half.is-occ {
+  fill: var(--m2);
+  opacity: 0.06;
+}
+.slam-wf-side {
+  font-size: 11px;
+  fill: var(--text-3);
+}
+.slam-wf-grid {
+  stroke: var(--grid);
+  stroke-width: 1;
+}
+.slam-wf-zero {
+  stroke: var(--text-3);
+  stroke-width: 1.2;
+  stroke-dasharray: 4 3;
+}
+.slam-wf-axis {
+  stroke: var(--text-2);
+  stroke-width: 1.2;
+}
+.slam-wf-tick {
+  font-size: 11px;
+  fill: var(--text-2);
+  font-family: var(--mono);
+}
+.slam-wf-ptick {
+  font-size: 10.5px;
+  fill: var(--m3);
+  font-family: var(--mono);
+}
+.slam-wf-axlab {
+  font-size: 11px;
+  font-style: italic;
+  fill: var(--text-3);
+}
+.slam-wf-rowlab {
+  font-size: 10px;
+  fill: var(--text-3);
+  font-family: var(--mono);
+}
+.slam-wf-num {
+  font-size: 11px;
+  font-family: var(--mono);
+  font-weight: 650;
+}
+.slam-wf-num.is-in {
+  fill: var(--surface);
+}
+.slam-wf-head {
+  font-size: 13px;
+  font-weight: 650;
+  fill: var(--text);
+  font-family: var(--mono);
+}
+.slam-wf-wall {
+  fill: var(--bad);
+  opacity: 0.8;
+}
+.slam-wf-bar {
+  animation: slam-grow 0.38s ease-out;
+}
+@keyframes slam-grow {
+  from {
+    transform: scaleX(0.02);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.slam-wf-now {
+  transition: transform 0.38s ease-out;
+}
+.slam-wf-nowline {
+  stroke: var(--m3);
+  stroke-width: 2;
+  stroke-dasharray: 5 3;
+}
+@media (prefers-reduced-motion: reduce) {
+  .slam-wf-bar {
+    animation: none;
+  }
+  .slam-wf-now {
+    transition: none;
+  }
+}
+.slam-occ-lr {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 6px 0;
+}
+.slam-occ-lrbox {
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--m2);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 0.86rem;
+  min-width: 0;
+}
+.slam-occ-lrbox.is-free {
+  border-left-color: var(--m1);
+}
+.slam-occ-sensor th.is-col,
+.slam-occ-sensor td.is-col {
+  background: var(--accent-soft);
+}
+.slam-occ-working {
+  font-size: 0.88rem;
+  overflow-x: auto;
+}
+
+/* ------------------------------------------------------------------ which problem */
+.slam-which-post {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px 6px;
+  background: var(--surface-2);
+}
+.slam-which-postrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 1.25rem;
+  min-height: 46px;
+}
+.slam-which-pp,
+.slam-which-bar {
+  font-family: var(--mono);
+  font-size: 1.5rem;
+  color: var(--text-2);
+}
+.slam-which-bar {
+  font-size: 1.8rem;
+  padding: 0 4px;
+}
+.slam-which-side {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 70px;
+  min-height: 38px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+}
+.slam-which-side.is-est {
+  justify-content: flex-end;
+  background: var(--warn-soft);
+}
+.slam-which-side.is-given {
+  background: var(--ok-soft);
+}
+.slam-which-tok {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  animation: slam-pop 0.3s ease-out;
+}
+.slam-which-tok.is-est {
+  border-color: var(--warn);
+}
+.slam-which-tok.is-data {
+  color: var(--text-2);
+}
+.slam-which-empty {
+  color: var(--text-3);
+  font-size: 0.95rem;
+}
+.slam-which-postlab {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--text-3);
+  margin-top: 4px;
+}
+@keyframes slam-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0.2;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.slam-which-table {
+  display: grid;
+  grid-template-columns: 92px 1fr 1fr;
+  gap: 8px;
+}
+.slam-which-row {
+  display: contents;
+}
+.slam-which-head,
+.slam-which-rowhead {
+  font-size: 0.85rem;
+  color: var(--text-2);
+  align-self: end;
+  text-align: center;
+}
+.slam-which-rowhead {
+  align-self: center;
+  text-align: right;
+}
+.slam-which-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  text-align: left;
+  min-height: 132px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.slam-which-cell:hover {
+  border-color: var(--text-3);
+}
+.slam-which-cell.is-pick {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.slam-which-cell.is-right {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+}
+.slam-which-cell.is-wrong {
+  border-color: var(--bad);
+  background: var(--bad-soft);
+}
+.slam-which-cell.is-truth {
+  border-color: var(--ok);
+  border-style: dashed;
+}
+.slam-which-name {
+  font-weight: 700;
+  font-size: 1.02rem;
+}
+.slam-which-tex {
+  font-size: 0.92rem;
+}
+.slam-which-tex.is-small {
+  font-size: 0.8rem;
+  color: var(--text-2);
+}
+.slam-which-eg {
+  font-size: 0.76rem;
+  color: var(--text-3);
+  margin-top: auto;
+}
+.slam-which-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
+}
+.slam-which-card {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+  font: inherit;
+  font-size: 0.84rem;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  min-height: 36px;
+}
+.slam-which-card.is-sel {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.slam-which-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  flex: none;
+  background: var(--surface-3);
+  color: var(--text-3);
+}
+.slam-which-card.is-ok .slam-which-mark {
+  background: var(--ok);
+  color: var(--surface);
+}
+.slam-which-card.is-bad .slam-which-mark {
+  background: var(--bad);
+  color: var(--surface);
+}
+.slam-which-card.is-half .slam-which-mark {
+  background: var(--warn);
+  color: var(--surface);
+}
+.slam-which-qs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 10px;
+}
+.slam-which-q {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.slam-which-slam .seg-btn {
+  font-size: 0.8rem;
+}

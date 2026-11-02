@@ -126,8 +126,9 @@ export function inverseSensor(z: BinaryReading, s: BinarySensor): number {
 
 /**
  * Log-odds update l_t = l_{t−1} + ln(p(m | z_t) / (1 − p(m | z_t))) − l₀, with l₀ the log-odds of the prior.
- * Additive form of occupancyUpdate (identical results when the prior is 0.5).
+ * Here p(m | z_t) is the inverse sensor model computed WITH that prior p₀ = 1 − 1/(1 + e^{l₀}), so the update
+ * adds exactly ln LR(z) = ln(p(z | m) / p(z | ¬m)) for any prior. Additive form of occupancyUpdate.
  */
 export function logOddsUpdate(l: number, z: BinaryReading, s: BinarySensor, l0 = 0): number {
-  return l + logOdds(inverseSensor(z, s)) - l0;
+  return l + logOdds(occupancyUpdate(fromLogOdds(l0), z, s)) - l0;
 }
